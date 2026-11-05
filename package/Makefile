@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=flint2-telemetry
-PKG_VERSION:=0.3.1
-PKG_RELEASE:=6
+PKG_VERSION:=0.4.0
+PKG_RELEASE:=1
 PKG_MAINTAINER:=John Narey <john.narey@gmail.com>
 PKG_LICENSE:=MIT GPL-2.0-only BSD-3-Clause ISC
 PKGARCH:=aarch64_cortex-a53
@@ -34,6 +34,7 @@ define Package/flint2-telemetry/postinst
 uci set firewall.flint2_events=include
 uci set firewall.flint2_events.path=/usr/libexec/flint2/firewall-events
 uci set firewall.flint2_events.reload=1
+uci set firewall.flint2_events.fw4_compatible=1
 uci commit firewall
 rm -f /tmp/luci-indexcache.*
 /etc/init.d/flint2 enable

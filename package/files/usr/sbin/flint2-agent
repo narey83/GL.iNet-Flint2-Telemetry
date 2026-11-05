@@ -1,17 +1,26 @@
 #!/usr/bin/lua
+local VERSION = "0.4.0"
+if arg[1] == "--version" then print("flint2-telemetry " .. VERSION); os.exit(0) end
+if arg[1] == "--help" or arg[1] == "-h" then
+    print("Usage: flint2-agent [--version|--help|--check-config|--capture-filter|--once|--metrics-once]")
+    os.exit(0)
+end
+if arg[1] and arg[1] ~= "--check-config" and arg[1] ~= "--capture-filter" and
+    arg[1] ~= "--once" and arg[1] ~= "--metrics-once" then
+    io.stderr:write("Unknown option: " .. arg[1] .. "\n"); os.exit(2)
+end
 local core = require("flint2.core")
 local metrics = require("flint2.metrics").new()
 local sources = require("flint2.sources")
 local json = require("cjson")
 local socket = require("socket")
-local nixio = require("nixio")
+local platform = require("flint2.platform")
 local uci = require("uci").cursor(os.getenv("FLINT2_CONFIG_DIR"))
-local VERSION = "0.3.1"
 local config = core.validate(uci:get_all("flint2", "main") or {})
 assert(core.read(config.ca_file), "collector certificate is missing")
 if config.metrics_enabled == "1" then assert(core.read(config.metrics_ca_file), "metrics certificate is missing") end
 -- Restore normal shutdown after vendor Lua/UCI modules initialize signal hooks.
-assert(nixio.signal(nixio.const.SIGTERM, "default"))
+platform.reset_sigterm()
 if arg[1]=="--capture-filter" then
     if config.capture_filter~="auto" then print(config.capture_filter);os.exit(0) end
     local host,port=config.endpoint:match("^https://([^/:]+):?(%d*)/")
@@ -23,8 +32,7 @@ if arg[1]=="--capture-filter" then
 end
 for _, key in ipairs({"headers_file","metrics_headers_file"}) do
     if config[key] then
-        local stat=assert(require("nixio.fs").stat(config[key]),"Missing exporter header file")
-        assert(stat.type=="reg" and stat.uid==nixio.getuid() and stat.modestr:sub(4)=="------",
+        assert(platform.private_file(config[key]),
             "Header file must be a regular file owned by the agent user with no group/other permissions")
     end
 end
@@ -116,7 +124,9 @@ local function inventory(now)
             devices[s.ip] = devices[s.ip] or {name=s.name or s.ip, mac=s.mac:lower()}
         end
     end)
-    local command=io.popen("sqlite3 -readonly -json /etc/oui-tertf/client.db 'SELECT mac,ip,name,seen FROM client LIMIT 4096' 2>/dev/null", "r")
+    local vendor_db=io.open("/etc/oui-tertf/client.db", "r")
+    if vendor_db then vendor_db:close() end
+    local command=vendor_db and io.popen("sqlite3 -readonly -json /etc/oui-tertf/client.db 'SELECT mac,ip,name,seen FROM client LIMIT 4096' 2>/dev/null", "r")
     if command then
         local text=command:read("*a");command:close()
         local ok, rows=pcall(json.decode,text)
@@ -286,7 +296,7 @@ end
 
 local function deliver()
     if #queue == 0 then return true end
-    -- Bound requests to 64 records; Caddy and Graylog cap the body at 256 KiB.
+    -- Bound requests to 64 records and keep bodies below common input limits.
     local count = math.min(#queue, 64)
     local body
     while true do

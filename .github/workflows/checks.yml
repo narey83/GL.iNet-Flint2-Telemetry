@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y lua5.1 lua-cjson shellcheck build-essential curl
+      - run: sudo apt-get update && sudo apt-get install -y lua5.1 lua-cjson lua-posix shellcheck build-essential curl
       - run: ./scripts/build-usign.sh
       - run: node tests/luci.js
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
@@ -22,5 +22,6 @@ jobs:
           lua5.1 tests/metrics.lua
           lua5.1 tests/sources.lua
           lua5.1 tests/standards.lua
-      - run: shellcheck -s dash -x package/files/etc/init.d/flint2 package/files/usr/libexec/flint2/firewall-events package/postinst package/prerm tests/*.sh
+          lua5.1 tests/platform.lua
+      - run: shellcheck -s dash -x package/files/etc/init.d/flint2 package/files/usr/libexec/flint2/firewall-events package/files/etc/uci-defaults/* package/postinst package/prerm tests/*.sh openwrt/*/test.sh
       - run: shellcheck scripts/build-capture.sh scripts/build-usign.sh

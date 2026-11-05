@@ -17,7 +17,7 @@ SOURCES = {
 def public_files(root):
     for name in ['LICENSE', 'README.md', 'ROADMAP.md', 'VALIDATION.md', 'CHANGELOG.md', '.gitignore']:
         yield root / name
-    for directory in ['docs', 'integrations', 'feed', 'scripts', 'tests', 'package', 'deploy', '.github', 'vendor/patches']:
+    for directory in ['docs', 'integrations', 'feed', 'scripts', 'tests', 'package', 'openwrt', 'deploy', '.github', 'vendor/patches']:
         for path in sorted((root / directory).rglob('*')):
             if not path.is_file() or path.is_symlink() or '__pycache__' in path.parts:
                 continue
@@ -37,7 +37,7 @@ def bundle(cache, output):
     raw = io.BytesIO()
     with tarfile.open(fileobj=raw, mode='w', format=tarfile.GNU_FORMAT) as archive:
         for name, content in sorted(entries.items()):
-            info = tarfile.TarInfo('flint2-telemetry-0.3.1/' + name)
+            info = tarfile.TarInfo('flint2-telemetry-0.4.0/' + name)
             info.size = len(content)
             info.mode = 0o755 if name.endswith('.sh') else 0o644
             info.uid = info.gid = info.mtime = 0
@@ -52,6 +52,6 @@ def bundle(cache, output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vendor-cache', type=Path, default=ROOT / 'vendor/.cache')
-    parser.add_argument('--output', type=Path, default=ROOT / 'dist/flint2-telemetry_0.3.1-sources.tar.gz')
+    parser.add_argument('--output', type=Path, default=ROOT / 'dist/flint2-telemetry_0.4.0-sources.tar.gz')
     args = parser.parse_args()
     bundle(args.vendor_cache, args.output)

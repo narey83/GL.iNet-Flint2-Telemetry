@@ -3,6 +3,7 @@
 uci set firewall.flint2_events=include
 uci set firewall.flint2_events.path=/usr/libexec/flint2/firewall-events
 uci set firewall.flint2_events.reload=1
+uci set firewall.flint2_events.fw4_compatible=1
 uci commit firewall
 # LuCI regenerates these menu indexes on the next request.
 rm -f /tmp/luci-indexcache.*

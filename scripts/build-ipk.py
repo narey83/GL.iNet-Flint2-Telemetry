@@ -8,7 +8,7 @@ import tarfile
 import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.1-6"
+VERSION = "0.4.0-1"
 ARCHITECTURE = "aarch64_cortex-a53"
 
 
@@ -38,7 +38,7 @@ def build(site_config=None, ca_file=None, output_directory=None):
     for path in sorted((ROOT / "package/files").rglob("*")):
         if path.is_file() and path.suffix not in {".crt", ".key", ".pem"}:
             relative = path.relative_to(ROOT / "package/files").as_posix()
-            executable = relative.startswith(("etc/init.d/", "usr/sbin/", "usr/libexec/"))
+            executable = relative.startswith(("etc/init.d/", "etc/uci-defaults/", "usr/sbin/", "usr/libexec/"))
             entries.append((relative, path.read_bytes(), 0o755 if executable else 0o644))
     capture=ROOT/"package/files/usr/sbin/flint2-capture"
     if not capture.is_file():

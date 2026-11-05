@@ -1,0 +1,93 @@
+Subject: [PATCH] nfprobe: synchronize shared-memory ring publication
+
+The core published a plain readiness sequence before the record count, and the
+nfprobe reader copied shared memory without acquire ordering. On ARM64 this can
+expose partly initialized timestamps even though the pcap timestamps are valid.
+Publish the complete slot with release ordering, acquire it before copying, and
+check for overwrite before consuming the snapshot. Preserve the existing ring
+layout, counters and timestamp values; do not synthesize replacement timestamps.
+
+--- a/src/plugin_hooks.c
++++ b/src/plugin_hooks.c
+@@ -503,10 +503,13 @@
+ 
+ 	/* let's commit the buffer we just finished writing */
+ 	((struct ch_buf_hdr *)channels_list[index].rg.ptr)->len = channels_list[index].bufptr;
+-	((struct ch_buf_hdr *)channels_list[index].rg.ptr)->seq = channels_list[index].hdr.seq;
+ 	((struct ch_buf_hdr *)channels_list[index].rg.ptr)->num = channels_list[index].hdr.num;
+-
+-	channels_list[index].status->last_buf_off = (u_int64_t)(channels_list[index].rg.ptr - channels_list[index].rg.base);
++        /* Publish readiness only after the complete payload and header. */
++        __atomic_store_n(&((struct ch_buf_hdr *)channels_list[index].rg.ptr)->seq,
++                         channels_list[index].hdr.seq, __ATOMIC_RELEASE);
++        __atomic_store_n(&channels_list[index].status->last_buf_off,
++                         (u_int64_t)(channels_list[index].rg.ptr - channels_list[index].rg.base),
++                         __ATOMIC_RELEASE);
+ 
+         if (config.debug_internal_msg) {
+ 	  struct plugins_list_entry *list = channels_list[index].plugin;
+@@ -540,7 +543,10 @@
+ 	  channels_list[index].rg.ptr = channels_list[index].rg.base;
+ 
+ 	/* let's protect the buffer we are going to write */
+-        ((struct ch_buf_hdr *)channels_list[index].rg.ptr)->seq = -1;
++        __atomic_store_n(&((struct ch_buf_hdr *)channels_list[index].rg.ptr)->seq,
++                         (u_int32_t)-1, __ATOMIC_RELAXED);
++        /* Invalidate a reused slot before any of its payload can be overwritten. */
++        __atomic_thread_fence(__ATOMIC_SEQ_CST);
+         ((struct ch_buf_hdr *)channels_list[index].rg.ptr)->num = 0;
+ 
+         /* rewind pointer */
+@@ -844,8 +850,12 @@
+     chptr->hdr.seq++;
+     chptr->hdr.seq %= MAX_SEQNUM;
+ 
+-    ((struct ch_buf_hdr *)chptr->rg.ptr)->seq = chptr->hdr.seq;
++    ((struct ch_buf_hdr *)chptr->rg.ptr)->len = chptr->bufptr;
+     ((struct ch_buf_hdr *)chptr->rg.ptr)->num = chptr->hdr.num;
++    __atomic_store_n(&((struct ch_buf_hdr *)chptr->rg.ptr)->seq,
++                     chptr->hdr.seq, __ATOMIC_RELEASE);
++    __atomic_store_n(&chptr->status->last_buf_off,
++                     (u_int64_t)(chptr->rg.ptr - chptr->rg.base), __ATOMIC_RELEASE);
+ 
+     if (chptr->plugin->cfg.pipe_zmq) {
+ #ifdef WITH_ZMQ
+--- a/src/nfprobe_plugin/nfprobe_plugin.c
++++ b/src/nfprobe_plugin/nfprobe_plugin.c
+@@ -1651,7 +1651,8 @@
+   
+         if ((rg->ptr + bufsz) > rg->end) rg->ptr = rg->base;
+   
+-        if (((struct ch_buf_hdr *)rg->ptr)->seq != seq) {
++        /* Pairs with the core's release publication of the slot. */
++        if (__atomic_load_n(&((struct ch_buf_hdr *)rg->ptr)->seq, __ATOMIC_ACQUIRE) != seq) {
+   	  if (!pollagain) {
+   	    pollagain = TRUE;
+   	    goto handle_flow_expiration;
+@@ -1665,13 +1666,24 @@
+                         config.name, config.type);
+   	    }
+ 
+-	    rg->ptr = (rg->base + status->last_buf_off);
+-  	    seq = ((struct ch_buf_hdr *)rg->ptr)->seq;
++	    rg->ptr = (rg->base + __atomic_load_n(&status->last_buf_off, __ATOMIC_ACQUIRE));
++            seq = __atomic_load_n(&((struct ch_buf_hdr *)rg->ptr)->seq, __ATOMIC_ACQUIRE);
++            if (seq == (u_int32_t)-1) {
++              pollagain = TRUE;
++              goto handle_flow_expiration;
++            }
+   	  }
+         }
+   
+         pollagain = FALSE;
+         memcpy(pipebuf, rg->ptr, bufsz);
++        /* A producer that laps the reader must not yield a torn packet. */
++        __atomic_thread_fence(__ATOMIC_ACQUIRE);
++        if (__atomic_load_n(&((struct ch_buf_hdr *)rg->ptr)->seq, __ATOMIC_RELAXED) != seq ||
++            ((struct ch_buf_hdr *)pipebuf)->seq != seq) {
++          pollagain = TRUE;
++          goto handle_flow_expiration;
++        }
+         rg->ptr += bufsz;
+       }
+ #ifdef WITH_ZMQ

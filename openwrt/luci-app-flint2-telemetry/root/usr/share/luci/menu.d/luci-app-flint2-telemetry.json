@@ -1,0 +1,8 @@
+{
+    "admin/services/flint2": {
+        "title": "Flint2 Telemetry",
+        "order": 60,
+        "action": { "type": "view", "path": "flint2/interfaces" },
+        "depends": { "acl": [ "luci-app-flint2-telemetry" ] }
+    }
+}

@@ -1,0 +1,26 @@
+Subject: [PATCH] pmacctd: expose the compiled nfprobe record buffer size
+
+The service needs one complete metadata/extras record per shared-memory slot,
+rounded up to the target's metadata alignment. Compute it in the capture binary
+instead of assuming an ARM64 structure layout in a portable shell script.
+
+Upstream-Status: Inappropriate [Flint2 service integration]
+
+--- a/src/pmacctd.c
++++ b/src/pmacctd.c
+@@ -285,6 +285,15 @@
+ 
+ int main(int argc,char **argv, char **envp)
+ {
++  /* Informational query: no configuration, sockets or capture initialization. */
++  if (argc == 2 && !strcmp(argv[1], "--flint2-buffer-size")) {
++    size_t alignment = __alignof__(struct pkt_data);
++    size_t bytes = sizeof(struct ch_buf_hdr) + sizeof(struct pkt_data)
++                   + sizeof(struct pkt_extras);
++    printf("%zu\n", ((bytes + alignment - 1) / alignment) * alignment);
++    return 0;
++  }
++
+   /* pcap library stuff */
+   struct pcap_pkthdr pkt_hdr;
+   const u_char *pkt_body;

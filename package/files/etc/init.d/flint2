@@ -4,18 +4,19 @@ export STOP=10
 export USE_PROCD=1
 
 start_capture() {
-	local interface="$1" port="$2" engine="$3" filter="$4"
+	local interface="$1" port="$2" engine="$3" filter="$4" buffer
 	case "$interface" in ''|*[!a-zA-Z0-9_.:-]*) return 1 ;; esac
 	[ "${#interface}" -le 15 ] || return 1
 	[ -d "/sys/class/net/$interface" ] || return 0
+	buffer=$(/usr/sbin/flint2-capture --flint2-buffer-size) || return 1
+	case "$buffer" in ''|*[!0-9]*) return 1 ;; esac
 	cat > "/var/run/flint2/capture-$engine.conf" <<EOF
 daemonize: false
 syslog: daemon
 pidfile: /var/run/flint2/capture-$engine.pid
 plugins: nfprobe
-# ARM64 record: 16-byte buffer header + 240-byte metadata + 3-byte extras.
-# Round 259 up to an 8-byte boundary: preserve extras and 64-bit field alignment.
-plugin_buffer_size: 264
+# Computed by the capture binary from its own target ABI and structure layout.
+plugin_buffer_size: $buffer
 pcap_interface: $interface
 snaplen: 128
 pcap_filter: $filter

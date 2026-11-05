@@ -1,15 +1,70 @@
 #!/bin/sh
 # Package-owned LOG-only chains. No traffic is accepted, rejected or dropped here.
-set -eu
+set -efu
 action=${1:-start}
+case "$action" in start|stop) ;; *) echo 'Usage: firewall-events [start|stop]' >&2; exit 2 ;; esac
 wan=$(uci -q get flint2.main.wan_interface || true)
 wan=${wan:-auto}
-if [ "$wan" = auto ]; then wan=$(ubus call network.interface.wan status | jsonfilter -e '@.l3_device'); fi
-wan=${wan:-flint2-no-wan}
-case "$wan" in ''|*[!a-zA-Z0-9_.:-]*) exit 1 ;; esac
 enabled=$(uci -q get flint2.main.enabled || true)
 logging=$(uci -q get flint2.main.firewall_events || true)
 logging=${logging:-1}
+vpn_interfaces=''
+if [ "$action" = start ] && [ "$enabled" = 1 ] && [ "$logging" = 1 ]; then
+	if [ "$wan" = auto ]; then wan=$(ubus call network.interface.wan status | jsonfilter -e '@.l3_device'); fi
+	case "$wan" in ''|*[!a-zA-Z0-9_.:-]*) echo 'Flint2: missing or invalid WAN device' >&2; exit 1 ;; esac
+	[ "${#wan}" -le 15 ] || exit 1
+	vpn_interfaces=$(uci -q get flint2.main.vpn_interface || true)
+	for interface in $vpn_interfaces; do
+		case "$interface" in ''|*[!a-zA-Z0-9_.:-]*) exit 1 ;; esac
+		[ "${#interface}" -le 15 ] || exit 1
+	done
+fi
+
+# fw4 reload executes this script after its atomic ruleset replacement. Build a
+# single transaction: failures leave the old rules intact, and every rule is
+# LOG-only. Never insert a verdict or modify another package's rules.
+if command -v fw4 >/dev/null 2>&1; then
+	batch=$(mktemp)
+	trap 'rm -f "$batch"' EXIT HUP INT TERM
+	for chain in forward drop_from_wan reject_from_wan; do
+		# Handles are obtained from our exact comment, not from rule text supplied
+		# by UCI. Only decimal handles in the known fw4 table are used.
+		nft -a list chain inet fw4 "$chain" 2>/dev/null | awk -v chain="$chain" '
+		index($0, "comment \"!flint2\"") && $(NF-1)=="handle" && $NF ~ /^[0-9]+$/ {
+			print "delete rule inet fw4 " chain " handle " $NF
+		}' >> "$batch" || true
+	done
+	for chain in flint2_evt_fwd flint2_evt_drop flint2_evt_reject; do
+		if nft list chain inet fw4 "$chain" >/dev/null 2>&1; then
+			printf 'flush chain inet fw4 %s\ndelete chain inet fw4 %s\n' "$chain" "$chain" >> "$batch"
+		fi
+	done
+	if [ "$action" != stop ] && [ "$enabled" = 1 ] && [ "$logging" = 1 ]; then
+		nft list chain inet fw4 forward >/dev/null
+		printf 'add chain inet fw4 flint2_evt_fwd\n' >> "$batch"
+		printf 'add rule inet fw4 flint2_evt_fwd meta nfproto ipv4 iifname "%s" ct state new ct status dnat limit rate 50/second burst 250 packets log prefix "FLINT2 FORWARD wan in: "\n' "$wan" >> "$batch"
+		for interface in $vpn_interfaces; do
+			printf 'add rule inet fw4 flint2_evt_fwd meta nfproto ipv4 iifname "%s" ct state new limit rate 30/minute log prefix "FLINT2 FORWARD vpn in: "\n' "$interface" >> "$batch"
+		done
+		printf 'insert rule inet fw4 forward jump flint2_evt_fwd comment "!flint2"\n' >> "$batch"
+		found=0
+		for verdict in drop reject; do
+			if nft list chain inet fw4 "${verdict}_from_wan" >/dev/null 2>&1; then
+				found=1
+				prefix=DROP
+				[ "$verdict" != reject ] || prefix=REJECT
+				{
+					printf 'add chain inet fw4 flint2_evt_%s\n' "$verdict"
+					printf 'add rule inet fw4 flint2_evt_%s meta nfproto ipv4 iifname "%s" limit rate 1/second log prefix "FLINT2 %s wan in: "\n' "$verdict" "$wan" "$prefix"
+					printf 'insert rule inet fw4 %s_from_wan jump flint2_evt_%s comment "!flint2"\n' "$verdict" "$verdict"
+				} >> "$batch"
+			fi
+		done
+		[ "$found" = 1 ] || { echo 'Flint2: no fw4 WAN drop/reject chain available' >&2; exit 1; }
+	fi
+	[ ! -s "$batch" ] || nft -f "$batch"
+	exit 0
+fi
 
 remove_jump() {
 	while iptables -C "$1" -j "$2" 2>/dev/null; do iptables -D "$1" -j "$2"; done
@@ -32,9 +87,7 @@ for chain in FLINT2_EVT_FWD FLINT2_EVT_DROP; do
 done
 iptables -A FLINT2_EVT_FWD -i "$wan" -m conntrack --ctstate NEW -m conntrack --ctstate DNAT \
 	-m limit --limit 50/second --limit-burst 250 -j LOG --log-prefix 'FLINT2 FORWARD wan in: '
-for interface in $(uci -q get flint2.main.vpn_interface || true); do
-	case "$interface" in ''|*[!a-zA-Z0-9_.:-]*) exit 1 ;; esac
-	[ "${#interface}" -le 15 ] || exit 1
+for interface in $vpn_interfaces; do
 	iptables -A FLINT2_EVT_FWD -i "$interface" -m conntrack --ctstate NEW \
 		-m limit --limit 30/minute -j LOG --log-prefix 'FLINT2 FORWARD vpn in: '
 done

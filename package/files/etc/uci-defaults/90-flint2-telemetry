@@ -1,0 +1,12 @@
+#!/bin/sh
+# Package-owned reload hook; it observes traffic without changing verdicts.
+uci set firewall.flint2_events=include
+uci set firewall.flint2_events.type=script
+uci set firewall.flint2_events.path=/usr/libexec/flint2/firewall-events
+if command -v fw4 >/dev/null 2>&1; then
+    uci set firewall.flint2_events.fw4_compatible=1
+    uci -q delete firewall.flint2_events.reload || true
+else
+    uci set firewall.flint2_events.reload=1
+fi
+uci commit firewall
