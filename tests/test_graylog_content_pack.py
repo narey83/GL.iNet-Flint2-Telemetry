@@ -70,6 +70,7 @@ class ContentPackTests(unittest.TestCase):
         self.assertNotIn('owner', self.text)
         self.assertNotIn('index_set_id', self.text)
         self.assertNotIn('pppoe-wan', self.text)
+        self.assertIsNone(re.search(r'Soulseek|Transmission|[Rr]eached a service|real intent|\(benign\)', self.text))
         self.assertNotIn('lookup_value(', self.text)
         self.assertNotIn('PRIVATE KEY', self.text)
         addresses = set(re.findall(r'\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d+)?', self.text))

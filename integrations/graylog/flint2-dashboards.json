@@ -525,7 +525,7 @@
                 "456df7df-1ae1-5a2f-b4dc-5b902944c14c": "Top Source Cities — N/A = GeoIP knows only the country",
                 "7dd50f4e-da82-5cb9-afc7-63bb92223a23": "Protocol Split",
                 "ececa0ac-a2b9-53f7-b697-501eef7434a7": "Top Sources — address, country, network",
-                "508c3c22-2106-51be-80cc-b4f2f48b7127": "Known-Bad (Spamhaus)"
+                "508c3c22-2106-51be-80cc-b4f2f48b7127": "Source IPs Flagged by Spamhaus"
               }
             },
             "widgets": [
@@ -5293,17 +5293,17 @@
                 "304d28f9-d0f1-53c6-b8d1-c8d305a128f7": "Unique Sources",
                 "423ec92f-184b-56a4-ac6f-a3ce1c02b0fe": "Countries",
                 "7c4d0148-3e4a-5078-bcb0-2276a58136fa": "Internal Hosts Reached",
-                "0d667091-31bf-5f97-a7dd-407e66413c65": "Web & Admin Access",
+                "0d667091-31bf-5f97-a7dd-407e66413c65": "Web/Admin Port Attempts",
                 "a1c5ae10-c685-52de-a51b-8d16f5ad36b7": "P2P Access (expected)",
                 "4cacbf45-3409-5b93-b0d4-665d13fa3c58": "Ports Outside the Example Common Set",
                 "f82bc68f-99f5-5753-8b1d-39de3883d63b": "Observed forwarded attempts Inbound Over Time, by Service",
                 "b9d73642-1415-5ba1-a55f-fbad95631948": "Services Reached",
                 "b6f15ab3-0ca8-524b-91e4-663229656177": "Source Countries",
-                "84b52b3a-dd2f-5491-ab80-a22b7eed33a2": "Web & Admin Access — every connection to 80 / 443 / 8443",
+                "84b52b3a-dd2f-5491-ab80-a22b7eed33a2": "Forwarded Attempts to Ports 80 / 443 / 8443",
                 "81b7ce85-3ece-523e-acaf-415b00f75ffc": "Top Source Networks",
                 "27c32102-791d-5bc5-aaf8-bd2046586a31": "Top Source Addresses",
                 "37eeae4c-f825-50a3-88b2-48a8d26daca9": "Which Sources Reach Which Services",
-                "5b97d950-85f7-5c69-8504-d096e400cc74": "Recent Observed forwarded attempts Connections",
+                "5b97d950-85f7-5c69-8504-d096e400cc74": "Recent Forwarded Attempts",
                 "8fe82d8b-6bef-5beb-b5c7-fd7753b1e9ac": "From Flagged Sources",
                 "4fe385ef-42a8-569c-9aaa-d08a09817b29": "Distinct Flagged Sources That Got In",
                 "f76ed9ab-c00a-5783-9577-a4e050c21ec5": "Flagged Sources — what they reached"
@@ -5417,7 +5417,7 @@
                   "series": [
                     {
                       "config": {
-                        "name": "Soulseek/BT"
+                        "name": "Example P2P ports"
                       },
                       "function": "count()"
                     }
@@ -6745,7 +6745,7 @@
                   "series": [
                     {
                       "type": "count",
-                      "id": "Soulseek/BT",
+                      "id": "Example P2P ports",
                       "field": null
                     }
                   ],
@@ -6862,7 +6862,7 @@
             "static_message_list_id": null,
             "titles": {
               "widget": {
-                "c40d5994-c244-5a1e-9915-0981d1b5c412": "Flagged Connections",
+                "c40d5994-c244-5a1e-9915-0981d1b5c412": "Flagged Observations",
                 "47dffa3b-7767-5329-8276-aea368b04350": "Flagged & ALLOWED",
                 "256a24e7-f0a9-54ee-95f4-b46a117209bb": "Flagged & Blocked",
                 "19efc328-c060-51f9-b964-d670efeabc5f": "Distinct Bad Sources",
@@ -6870,7 +6870,7 @@
                 "cbf46b5e-0341-521c-bd0a-69144433ebe0": "Tor Exit Nodes",
                 "42985e0d-32ed-56fc-83a2-d09e6810a38d": "We Initiated to a Bad Peer",
                 "84a4968d-c7c0-5db1-ac1c-dbbdcbd9fb69": "Flagged Traffic Over Time — observed forwarded attempts vs blocked",
-                "65ec7ed8-a9ee-5f8d-b091-e421d055b57d": "Observed forwarded attempts Connections From Flagged Sources — these reached a service",
+                "65ec7ed8-a9ee-5f8d-b091-e421d055b57d": "Forwarded Attempts From Flagged Sources",
                 "1f7a0156-685c-5822-ab75-07c919149554": "Flagged Source Addresses",
                 "f4ba5fbc-91ba-5930-b2f4-9dcbbd55157d": "Flagged Source Networks",
                 "836e73a3-cb13-5623-884b-d6a169a9e07e": "Ports They Probed",
@@ -7590,7 +7590,7 @@
                   "series": [
                     {
                       "config": {
-                        "name": "Reached a service"
+                        "name": "Forwarded attempt"
                       },
                       "function": "count()"
                     }
@@ -8211,7 +8211,7 @@
                   "series": [
                     {
                       "type": "count",
-                      "id": "Reached a service",
+                      "id": "Forwarded attempt",
                       "field": null
                     }
                   ],
@@ -9598,7 +9598,7 @@
               "widget": {
                 "350d578d-feea-5697-8db6-b80079d1e016": "Downloaded, last hour (MB)",
                 "35212d72-baf3-5187-9932-f3d5dfa457f5": "Uploaded, last hour (MB)",
-                "8b177156-055d-5295-82d0-5e9823aec24d": "...of which Soulseek + Transmission (MB)",
+                "8b177156-055d-5295-82d0-5e9823aec24d": "Example P2P Port Group (MB)",
                 "29bf5bf2-e189-5e03-b0f8-9be68a5b5bae": "Remote IPs Contacting You (last 5 min)",
                 "71228e0b-83fb-546a-b10d-6f48457e9a8d": "Bandwidth per Minute: Download vs Upload (last 6h)",
                 "487ee0b4-ac12-5896-9508-b01101860179": "Bandwidth per Hour (last 7 days)",
