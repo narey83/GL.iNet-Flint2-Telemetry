@@ -35,6 +35,19 @@ working installation. The [catalogue](docs/integrations/GRAYLOG-DASHBOARDS.md)
 explains optional GeoIP/ASN/intelligence enrichments and the portable field mapping.
 The agent remains usable with other compatible logging and monitoring platforms.
 
+## Download an IPK
+
+Get the generic IPK and `SHA256SUMS` from
+[GitHub Releases](https://github.com/narey83/GL.iNet-Flint2-Telemetry/releases/latest).
+Download the matching `aarch64_cortex-a53` package only if your firmware matches
+the ABI described below. Keep the corresponding source archive with redistributed
+binaries. Public packages start disabled and require your own destination settings.
+
+GitHub can also build it: **Actions → Build OpenWrt IPK → Run workflow** produces
+a downloadable artifact containing the IPK, matching sources, checksums, build
+metadata and Graylog imports. Manual artifacts expire after 30 days. Version tags
+create a **draft** release for qualification; see [release builds](docs/RELEASES.md).
+
 ## Build
 
 The current native capture asset targets `aarch64_cortex-a53`, OpenWrt 21.02 musl.
@@ -56,7 +69,7 @@ build requires removing its `work/` subdirectory. The script does not install ho
 packages. The `.ipk` builder is deterministic for identical inputs; identical
 native binaries across different hosts are not promised.
 
-The result is `dist/flint2-telemetry_0.3.1-3_aarch64_cortex-a53.ipk` plus SHA-256.
+The result is `dist/flint2-telemetry_0.3.1-4_aarch64_cortex-a53.ipk` plus SHA-256.
 Run `python3 scripts/bundle-sources.py` after validation to produce its matching
 source archive, including the checksum-verified upstream source tarballs.
 Lua modules are MIT licensed. The bundled pmacct capture component and libraries
@@ -67,7 +80,7 @@ and comply with the bundled GPL notices. Do not publish only the `.ipk`.
 ## Install and configure
 
 ```sh
-opkg install ./flint2-telemetry_0.3.1-3_aarch64_cortex-a53.ipk
+opkg install ./flint2-telemetry_0.3.1-4_aarch64_cortex-a53.ipk
 uci set flint2.main.endpoint='https://collector.example.invalid/v1/logs'
 uci set flint2.main.metrics_endpoint='https://collector.example.invalid/v1/metrics'
 # Replace both example URLs with real HTTPS destinations before enabling.

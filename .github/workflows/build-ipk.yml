@@ -1,0 +1,74 @@
+name: Build OpenWrt IPK
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: ipk-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install build and check tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential curl patch python3 xz-utils bison flex libtool pkg-config zlib1g-dev libncurses-dev libssl-dev file binutils lua5.1 lua-cjson shellcheck
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: python3 scripts/prepare-release.py --check-version
+      - name: Source checks
+        env:
+          LUA_PATH: ./package/files/usr/lib/lua/?.lua;;
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          python3 -m py_compile scripts/*.py tests/test_*.py
+          node tests/luci.js
+          lua5.1 tests/core.lua
+          lua5.1 tests/metrics.lua
+          lua5.1 tests/sources.lua
+          lua5.1 tests/standards.lua
+          shellcheck -s dash -x package/files/etc/init.d/flint2 package/files/usr/libexec/flint2/firewall-events package/postinst package/prerm tests/*.sh
+          shellcheck scripts/build-capture.sh
+      - name: Compile pinned ARM64 capture sources
+        run: ./scripts/build-capture.sh
+      - name: Inspect target ELF
+        run: |
+          file package/files/usr/sbin/flint2-capture
+          readelf -h -d package/files/usr/sbin/flint2-capture
+      - name: Prepare generic IPK and matching sources
+        env:
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: python3 scripts/prepare-release.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flint2-telemetry-release
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 30
+  draft-release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: flint2-telemetry-release
+          path: release
+      - name: Create draft with verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cd release
+          sha256sum --check SHA256SUMS
+          gh release create "$RELEASE_TAG" ./*.ipk ./*-sources.tar.gz ./flint2-dashboards.json ./*.sha256 ./BUILD-INFO.json ./SHA256SUMS --verify-tag --draft --title "GL.iNet Flint2 Telemetry $RELEASE_TAG" --notes-file RELEASE-NOTES.md

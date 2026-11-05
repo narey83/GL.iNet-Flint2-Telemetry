@@ -1,5 +1,13 @@
 # Changes
 
+## 0.3.1-4
+
+- Add checksum-pinned GitHub Actions builds of the native ARM64 capture component,
+  generic IPK, corresponding sources and optional Graylog imports.
+- Record build commit/ABI and checksums; tags prepare draft releases for router
+  qualification, while manual builds provide downloadable artifacts.
+- Keep the telemetry runtime and public configuration defaults unchanged.
+
 ## Integration documentation
 
 - Add Graylog HTTPS/input/router setup, a dashboard catalogue, optional-enrichment
