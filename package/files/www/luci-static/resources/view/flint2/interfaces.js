@@ -117,7 +117,7 @@ return view.extend({
                         E('p', {}, _('Send logs and flow observations as OpenTelemetry logs, ECS NDJSON or GELF over HTTPS. Send native metrics using OTLP/HTTP JSON to a metrics-capable destination. Use a compatible OpenTelemetry Collector when your logging or monitoring platform needs a supported exporter or adapter.')),
                         E('p', {}, _('This page controls monitored interfaces. Configure your own HTTPS endpoints and delivery settings in /etc/config/flint2. Optional metric event copies let logging platforms search measurements as log records; native metrics remain a separate signal. Destination support depends on the formats it accepts.'))
                     ]),
-                    E('p', {}, [E('a', { href: 'https://github.com/narey83/flint2-telemetry#readme', target: '_blank', rel: 'noopener noreferrer' }, _('Documentation, setup and supported destinations on GitHub'))]),
+                    E('p', {}, [E('a', { href: 'https://github.com/narey83/GL.iNet-Flint2-Telemetry#readme', target: '_blank', rel: 'noopener noreferrer' }, _('Documentation, setup and supported destinations on GitHub'))]),
                     E('details', {}, [
                         E('summary', {}, _('Collection limits and VPN connection logging')),
                         E('p', {}, _('Current VPN observations cover forwarded traffic, not WireGuard handshake or tunnel connection events. Switching on a WireGuard client alone does not produce a VPN connection event here.')),

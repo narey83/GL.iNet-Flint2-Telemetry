@@ -195,3 +195,7 @@ material. A private-key-marker match was a deliberate rejection-test fixture wit
 no key contents. Dedicated secret scanners and C/Lua static analyzers were not
 available. Git whitespace checks passed outside the upstream patch, whose context
 lines preserve upstream whitespace for exact application.
+
+Package 0.3.1-3 updates the project help URL to the renamed
+`narey83/GL.iNet-Flint2-Telemetry` repository. Collection and native capture
+behavior are unchanged.

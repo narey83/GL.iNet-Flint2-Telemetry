@@ -1,6 +1,6 @@
 # Changes
 
-## 0.3.1-2
+## 0.3.1-3
 
 - Synchronize the native capture ring on ARM64, publish complete records before
   readiness, and reject overwritten snapshots without changing packet timestamps.

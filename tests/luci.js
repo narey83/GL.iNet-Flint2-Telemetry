@@ -53,7 +53,7 @@ page.render([{}, []]).then(function(result) {
     assert.equal(result.tag, 'div');
     const help = JSON.stringify(result.children[0]);
     assert.ok(!/Graylog|Splunk/i.test(help), 'General capability guide must be backend-neutral');
-    for (const phrase of ['What you can do with Flint2 Telemetry', 'How to choose interfaces', 'Connect to logging and monitoring platforms', 'OTLP/HTTP JSON', 'https://github.com/narey83/flint2-telemetry#readme', 'noopener noreferrer', 'not WireGuard handshake'])
+    for (const phrase of ['What you can do with Flint2 Telemetry', 'How to choose interfaces', 'Connect to logging and monitoring platforms', 'OTLP/HTTP JSON', 'https://github.com/narey83/GL.iNet-Flint2-Telemetry#readme', 'noopener noreferrer', 'not WireGuard handshake'])
         assert.ok(help.includes(phrase), phrase);
     console.log('PASS: LuCI validation, restricted ACL, destination display and capability guide');
 });
