@@ -11,6 +11,7 @@ PKG_MAINTAINER:=John Narey <john.narey@gmail.com>
 PKG_LICENSE:=GPL-2.0-or-later BSD-3-Clause ISC
 PKG_LICENSE_FILES:=COPYING src/external_libs/libcdada/LICENSE
 PKG_BUILD_PARALLEL:=1
+PKG_FIXUP:=autoreconf
 
 # Release archives include libcdada; never discover a containing buildroot git
 # repository and try to initialize pmacct's submodule in that unrelated tree.

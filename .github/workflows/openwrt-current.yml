@@ -1,0 +1,34 @@
+name: Build current OpenWrt packages
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, openwrt-current]
+    paths: ['openwrt/**', 'package/files/**', 'scripts/build-openwrt.sh', 'scripts/prepare-openwrt-sdk.py', '.github/workflows/openwrt-current.yml']
+  pull_request:
+    paths: ['openwrt/**', 'package/files/**', 'scripts/build-openwrt.sh', 'scripts/prepare-openwrt-sdk.py', '.github/workflows/openwrt-current.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86/64
+            name: x86-64
+          - target: mediatek/filogic
+            name: mediatek-filogic
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y build-essential flex bison gawk gettext libncurses-dev libssl-dev python3 python3-setuptools rsync swig unzip zlib1g-dev file curl zstd
+      - run: sh scripts/build-openwrt.sh '${{ matrix.target }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: current-openwrt-${{ matrix.name }}
+          path: vendor/.cache/current-${{ matrix.name }}/artifacts/
+          if-no-files-found: error
+          retention-days: 30
