@@ -1,0 +1,8 @@
+__pycache__/
+.DS_Store
+/local/
+/dist/
+/package/files/etc/flint2/*.crt
+/package/files/usr/sbin/flint2-capture
+/vendor/bin/
+/vendor/.cache/

@@ -1,0 +1,14 @@
+{
+    "luci-app-flint2-telemetry": {
+        "description": "Configure Flint2 telemetry interface selection",
+        "read": {
+            "uci": [ "flint2", "network", "wireless" ],
+            "ubus": {
+                "luci-rpc": [ "getNetworkDevices", "getWirelessDevices", "getHostHints", "getBoardJSON" ],
+                "network": [ "get_proto_handlers" ],
+                "network.interface": [ "dump" ]
+            }
+        },
+        "write": { "uci": [ "flint2" ] }
+    }
+}

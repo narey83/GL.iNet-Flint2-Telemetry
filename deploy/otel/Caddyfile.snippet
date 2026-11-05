@@ -1,0 +1,12 @@
+# Add within your HTTPS ingestion site. Set FLINT2_ROUTER_IP explicitly.
+handle /flint2-metrics {
+    @not_metrics_router not remote_ip {$FLINT2_ROUTER_IP}
+    respond @not_metrics_router 403
+    @not_metrics_post not method POST
+    respond @not_metrics_post 405
+    request_body {
+        max_size 256KB
+    }
+    rewrite * /v1/metrics
+    reverse_proxy flint2-otel:4318
+}

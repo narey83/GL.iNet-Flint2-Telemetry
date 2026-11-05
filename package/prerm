@@ -1,0 +1,6 @@
+#!/bin/sh
+[ -n "$IPKG_INSTROOT" ] && exit 0
+/etc/init.d/flint2 stop
+/etc/init.d/flint2 disable
+uci -q delete firewall.flint2_events
+uci commit firewall

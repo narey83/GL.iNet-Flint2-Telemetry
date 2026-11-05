@@ -1,0 +1,409 @@
+#!/usr/bin/lua
+local core = require("flint2.core")
+local metrics = require("flint2.metrics").new()
+local sources = require("flint2.sources")
+local json = require("cjson")
+local socket = require("socket")
+local nixio = require("nixio")
+local uci = require("uci").cursor(os.getenv("FLINT2_CONFIG_DIR"))
+local VERSION = "0.3.1"
+local config = core.validate(uci:get_all("flint2", "main") or {})
+assert(core.read(config.ca_file), "collector certificate is missing")
+if config.metrics_enabled == "1" then assert(core.read(config.metrics_ca_file), "metrics certificate is missing") end
+-- Restore normal shutdown after vendor Lua/UCI modules initialize signal hooks.
+assert(nixio.signal(nixio.const.SIGTERM, "default"))
+if arg[1]=="--capture-filter" then
+    if config.capture_filter~="auto" then print(config.capture_filter);os.exit(0) end
+    local host,port=config.endpoint:match("^https://([^/:]+):?(%d*)/")
+    local address=host and socket.dns.toip(host)
+    if address and address:match("^[%d.]+$") then
+        print("ip and not (host "..address.." and tcp port "..(port~="" and port or "443")..")")
+    else print("ip") end
+    os.exit(0)
+end
+for _, key in ipairs({"headers_file","metrics_headers_file"}) do
+    if config[key] then
+        local stat=assert(require("nixio.fs").stat(config[key]),"Missing exporter header file")
+        assert(stat.type=="reg" and stat.uid==nixio.getuid() and stat.modestr:sub(4)=="------",
+            "Header file must be a regular file owned by the agent user with no group/other permissions")
+    end
+end
+if arg[1]=="--check-config" then os.exit(0) end
+local hostname = (core.read("/proc/sys/kernel/hostname") or "flint2"):gsub("%s+$", "")
+local boot_id = (core.read("/proc/sys/kernel/random/boot_id") or "unknown"):gsub("%s+$", "")
+local start_id = (core.read("/proc/sys/kernel/random/uuid") or tostring(socket.gettime())):gsub("%s+$", "")
+local queue, previous_interfaces = {}, {}
+local previous_cpu, previous_uptime, previous_wan, inventory_at
+local sequence, dropped, delivery_failed = 0, 0, false
+local metrics_queue, sample_records = {}, {}
+local metrics_failed, metrics_dropped, metrics_rejected = false, 0, 0
+local sample_cpu_text
+local collecting = false
+local devices, public_ip = {}, ""
+local local_networks,router_ips={},{}
+local previous_logs
+local source_stats = {flow_records=0, invalid_datagrams=0, log_records=0, log_gaps=0}
+local runtime = os.getenv("FLINT2_RUNTIME_DIR") or "/var/run/flint2"
+assert(runtime:match("^/[%w/_.-]+$"), "invalid runtime directory")
+local payload = runtime .. "/payload.ndjson"
+local response = runtime .. "/response.json"
+local status_file = runtime .. "/http-status"
+
+local function event(kind, fields, message, timestamp, severity)
+    sequence = sequence + 1
+    local record = {version = "1.1", host = hostname, timestamp = timestamp or socket.gettime(),
+        short_message = message or ("Flint2 " .. kind), level = severity or 6,
+        _flint2 = "telemetry", _schema_version = 2, _agent_version = VERSION,
+        _event_kind = kind, _boot_id = boot_id, _agent_start_id = start_id, _sequence = sequence}
+    record['_ecs.version']='8.17.0'
+    record['_observer.name']=hostname
+    record['_observer.type']='router'
+    record['_event.id']=start_id..":"..sequence
+    record['_event.kind']=kind=="metric" and "metric" or "event"
+    record['_event.dataset']='flint2.'..kind
+    record['_event.module']='flint2'
+    for key, value in pairs(fields or {}) do
+        if type(value) == "string" or type(value) == "number" or type(value)=="table" or type(value)=="boolean" then record["_" .. key] = value end
+    end
+    dropped = dropped + core.enqueue(queue, record, config.max_queue)
+    if collecting and (kind=="system" or kind=="interface" or kind=="wan" or kind=="inventory") then
+        sample_records[#sample_records + 1] = record
+    end
+end
+
+local function wan_status()
+    -- The Lua ubus module installs uloop signal handlers even without running
+    -- its event loop, preventing this synchronous agent from exiting on SIGTERM.
+    local command = io.popen("ubus -t 2 call network.interface.wan status 2>/dev/null", "r")
+    if not command then return nil end
+    local text = command:read("*a")
+    command:close()
+    local ok, status = pcall(json.decode, text)
+    if not ok or type(status) ~= "table" then return nil end
+    local ip = status["ipv4-address"] and status["ipv4-address"][1]
+    if config.wan_interface=="auto" and status.l3_device then config.wan_interface=status.l3_device end
+    if status.l3_device and core.valid_interface(status.l3_device) then
+        local found=false
+        for _, name in ipairs(config.interface) do if name==status.l3_device then found=true end end
+        if not found then config.interface[#config.interface+1]=status.l3_device end
+    end
+    return {wan_up = status.up and 1 or 0, wan_uptime_seconds = tonumber(status.uptime),
+        wan_ipv4 = ip and ip.address or "", wan_protocol = status.proto or "unknown"}
+end
+
+local function inventory(now)
+    if inventory_at and now - inventory_at < config.inventory_interval then return end
+    local records = core.lease_records(core.read("/tmp/dhcp.leases"))
+    local network_command=io.popen("ubus -t 2 call network.interface dump 2>/dev/null","r")
+    if network_command then
+        local text=network_command:read("*a");network_command:close()
+        local ok,dump=pcall(json.decode,text)
+        if ok and type(dump)=="table" then local_networks,router_ips=sources.networks(dump,config.flow_lan_interface) end
+    end
+    local aliases = {}
+    uci:foreach("gl-client", nil, function(s)
+        if s.mac and s.alias then aliases[s.mac:lower()] = s.alias:sub(1, 128) end
+    end)
+    devices = {}
+    for _, record in ipairs(records) do
+        record.device_name = aliases[record.device_mac] or record.device_name
+        record.device_network=sources.network_name(record.device_ip,local_networks) or "other"
+        event("device", record)
+        devices[record.device_ip] = {name=record.device_name, mac=record.device_mac}
+    end
+    uci:foreach("dhcp", "host", function(s)
+        if s.ip and type(s.mac)=="string" then
+            devices[s.ip] = devices[s.ip] or {name=s.name or s.ip, mac=s.mac:lower()}
+        end
+    end)
+    local command=io.popen("sqlite3 -readonly -json /etc/oui-tertf/client.db 'SELECT mac,ip,name,seen FROM client LIMIT 4096' 2>/dev/null", "r")
+    if command then
+        local text=command:read("*a");command:close()
+        local ok, rows=pcall(json.decode,text)
+        if ok and type(rows)=="table" then
+            for _, row in ipairs(rows) do
+                if type(row.ip)=="string" and type(row.mac)=="string" and tonumber(row.seen) and
+                    socket.gettime()-tonumber(row.seen)<7*86400 and not devices[row.ip] then
+                    devices[row.ip]={name=type(row.name)=="string" and row.name~="" and row.name or row.ip,mac=row.mac:lower()}
+                end
+            end
+        end
+    end
+    local overrides={}
+    uci:foreach("flint2", "device_alias", function(s)
+        if type(s.mac)=="string" and type(s.name)=="string" then overrides[s.mac:lower()]=s.name end
+    end)
+    for _, device in pairs(devices) do device.name=overrides[device.mac] or aliases[device.mac] or device.name end
+    event("inventory", {dhcp_lease_records = #records, inventory_limit = 256})
+    inventory_at = now
+end
+
+local function collect()
+    collecting = true
+    sample_records = {}
+    local uptime = tonumber((core.read("/proc/uptime") or ""):match("^[%d.]+"))
+    assert(uptime, "cannot read uptime")
+    local elapsed = previous_uptime and uptime - previous_uptime or 0
+    sample_cpu_text = core.read("/proc/stat")
+    local cpu = core.cpu(sample_cpu_text)
+    local system = core.memory(core.read("/proc/meminfo"))
+    system.uptime_seconds = uptime
+    system.cpu_used_percent = core.cpu_percent(previous_cpu, cpu)
+    local l1, l5, l15 = (core.read("/proc/loadavg") or ""):match("^(%S+)%s+(%S+)%s+(%S+)")
+    system.load_1, system.load_5, system.load_15 = tonumber(l1), tonumber(l5), tonumber(l15)
+    local temperature = core.number("/sys/class/thermal/thermal_zone0/temp")
+    system.temperature_celsius = temperature and temperature / 1000
+    system.conntrack_count = core.number("/proc/sys/net/netfilter/nf_conntrack_count")
+    system.conntrack_max = core.number("/proc/sys/net/netfilter/nf_conntrack_max")
+    system.queue_depth = #queue
+    system.queue_dropped_total = dropped
+    system.delivery_failed = delivery_failed and 1 or 0
+    if config.metrics_enabled == "1" then
+        system.metrics_queue_depth = #metrics_queue
+        system.metrics_dropped_total = metrics_dropped
+        system.metrics_rejected_total = metrics_rejected
+        system.metrics_delivery_failed = metrics_failed and 1 or 0
+    end
+    system.sample_seconds = elapsed > 0 and elapsed or nil
+    for key, value in pairs(source_stats) do system["source_"..key]=value end
+    event("system", system)
+    for _, name in ipairs(config.interface) do
+        local base = "/sys/class/net/" .. name .. "/"
+        local rx = core.number(base .. "statistics/rx_bytes")
+        local tx = core.number(base .. "statistics/tx_bytes")
+        if rx and tx then
+            local previous = previous_interfaces[name]
+            local operstate = (core.read(base .. "operstate") or "unknown"):gsub("%s+$", "")
+            local fields = {interface = name, interface_index = core.number(base .. "ifindex"),
+                rx_bytes = rx, tx_bytes = tx, operstate = operstate,
+                rx_bits_per_second = core.rate(previous and previous.rx, rx, elapsed),
+                tx_bits_per_second = core.rate(previous and previous.tx, tx, elapsed),
+                rx_errors = core.number(base .. "statistics/rx_errors"),
+                tx_errors = core.number(base .. "statistics/tx_errors"),
+                rx_dropped = core.number(base .. "statistics/rx_dropped"),
+                tx_dropped = core.number(base .. "statistics/tx_dropped")}
+            event("interface", fields)
+            if previous and previous.state ~= operstate then
+                event("event", {event_type = "interface_state", interface = name, operstate = operstate}, "Interface state changed")
+            end
+            previous_interfaces[name] = {rx = rx, tx = tx, state = operstate}
+        elseif previous_interfaces[name] then
+            event("event", {event_type = "interface_removed", interface = name}, "Interface disappeared")
+            previous_interfaces[name] = nil
+        end
+    end
+    local wan = wan_status()
+    if wan then
+        public_ip = wan.wan_ipv4
+        event("wan", wan)
+        if previous_wan and (wan.wan_up ~= previous_wan.wan_up or wan.wan_ipv4 ~= previous_wan.wan_ipv4 or
+            (wan.wan_uptime_seconds or 0) < (previous_wan.wan_uptime_seconds or 0)) then
+            wan.event_type = "wan_change"
+            event("event", wan, "WAN status, address or session changed")
+        end
+        previous_wan = wan
+    else
+        event("event", {event_type = "wan_probe_failed"}, "WAN status unavailable")
+    end
+    inventory(uptime)
+    previous_uptime, previous_cpu = uptime, cpu
+    collecting = false
+end
+
+local function collect_logs()
+    local command=io.popen("timeout -k 1 3 logread -l 512 2>/dev/null", "r")
+    if not command then return end
+    local text=command:read(524288) or "";command:close()
+    local lines={}
+    for line in text:gmatch("[^\n]+") do lines[#lines+1]=line end
+    if previous_logs then
+        local overlap=sources.overlap(previous_logs,lines)
+        if overlap==0 and #lines>=512 then source_stats.log_gaps=source_stats.log_gaps+1 end
+        for i=overlap+1,#lines do
+            local fields,message,timestamp,severity=sources.log(lines[i],hostname,config.wan_interface)
+            -- Do not feed the agent's own errors back through its delivery path.
+            if fields and not message:find("Flint2",1,true) then
+                event("router_log",fields,message,timestamp,severity)
+                source_stats.log_records=source_stats.log_records+1
+            end
+        end
+    end
+    previous_logs=lines
+end
+
+local receivers, receiver_datasets = {}, {}
+if config.flow_capture=="1" and arg[1]~="--once" and arg[1]~="--metrics-once" then
+    for _, source in ipairs({{42055,"flow_wan"},{42056,"flow_lan"}}) do
+        local receiver=assert(socket.udp())
+        assert(receiver:setsockname("127.0.0.1",source[1]))
+        receiver:settimeout(0)
+        receivers[#receivers+1]=receiver
+        receiver_datasets[receiver]=source[2]
+    end
+end
+
+local function collect_flows()
+    for _, receiver in ipairs(receivers) do
+        for _=1,64 do
+            local data,peer=receiver:receivefrom(2048)
+            if not data then break end
+            local records,reason
+            if peer=="127.0.0.1" then records,reason=sources.flows(data,receiver_datasets[receiver])
+            else reason="unexpected local exporter peer" end
+            if not records then
+                source_stats.invalid_datagrams=source_stats.invalid_datagrams+1
+                if source_stats.invalid_datagrams<=3 then
+                    io.stderr:write("Flint2 ignored capture datagram: "..tostring(reason).." ("..#data.." bytes)\n")
+                end
+            else
+                for _, fields in ipairs(records) do
+                    sources.device_labels(fields,devices,public_ip,local_networks,router_ips)
+                    event("flow",fields,"Flint2 captured flow",fields['flint2.capture.export_time'])
+                    source_stats.flow_records=source_stats.flow_records+1
+                end
+            end
+            if #queue>=64 then return end
+        end
+    end
+end
+
+local function send(body, endpoint, certificate, content_type, headers_file)
+    local file = assert(io.open(payload, "w"))
+    file:write(body)
+    file:close()
+    local command = "curl --silent --show-error --connect-timeout 3 --max-time 8 --noproxy '*' " ..
+        "--cacert " .. core.quote(certificate) .. " --header "..core.quote('Content-Type: '..(content_type or 'application/json')).." " ..
+        "--data-binary @" .. payload .. " --output " .. response .. " --max-filesize 65536 " ..
+        core.quote(endpoint) .. " --write-out '%{http_code}' > " .. status_file .. " 2>/dev/null"
+    if headers_file then command=command.." --header @"..core.quote(headers_file) end
+    local transferred = os.execute(command) == 0
+    local status, text = core.read(status_file), core.read(response)
+    os.remove(payload)
+    os.remove(response)
+    os.remove(status_file)
+    return transferred, status, text
+end
+
+local function deliver()
+    if #queue == 0 then return true end
+    -- Bound requests to 64 records; Caddy and Graylog cap the body at 256 KiB.
+    local count = math.min(#queue, 64)
+    local body
+    while true do
+        if config.format == "otlp_http_json" then
+            local records = {}
+            for i = 1, count do records[i] = queue[i] end
+            body = json.encode(core.otlp(records))
+        else
+            local lines = {}
+            for i = 1, count do
+                lines[i]=config.format=="ecs_ndjson" and json.encode(core.ecs_document(queue[i])) or core.gelf_encode(queue[i])
+            end
+            body = table.concat(lines, "\n") .. "\n"
+        end
+        if #body<=240*1024 then break end
+        if count==1 then
+            table.remove(queue,1);dropped=dropped+1
+            io.stderr:write("Flint2 discarded one oversized log record\n")
+            return true
+        end
+        count=math.max(1,math.floor(count/2))
+    end
+    local ok, status, text = send(body, config.endpoint, config.ca_file,
+        config.format=="ecs_ndjson" and 'application/x-ndjson' or 'application/json',config.headers_file)
+    local transferred=ok
+    local permanent=false
+    ok = ok and (config.format == "otlp_http_json" and status == "200" or
+        config.format == "gelf" and (status == "200" or status == "202" or status == "204") or
+        config.format=="ecs_ndjson" and tonumber(status) and tonumber(status)>=200 and tonumber(status)<300)
+    if transferred and config.format == "otlp_http_json" then
+        local disposition, rejected = core.otlp_result(status, text, "rejectedLogRecords")
+        ok = disposition == "accepted"
+        permanent=disposition=="drop"
+        if permanent then dropped=dropped+count end
+        if ok then
+            dropped = dropped + rejected
+            if rejected > 0 then io.stderr:write("Flint2 OTLP collector rejected " .. rejected .. " records\n") end
+        end
+    end
+    if ok or permanent then for _ = 1, count do table.remove(queue, 1) end end
+    if ok == delivery_failed then
+        io.stderr:write(ok and "Flint2 delivery recovered\n" or "Flint2 delivery failed; retaining bounded RAM queue\n")
+    end
+    delivery_failed = not ok
+    return ok or permanent
+end
+
+local function deliver_metrics()
+    if #metrics_queue == 0 then return true end
+    local batch = metrics_queue[1]
+    local transferred, status, text = send(batch.body, config.metrics_endpoint, config.metrics_ca_file,nil,config.metrics_headers_file)
+    local disposition, rejected = "retry", 0
+    if transferred then disposition, rejected = core.otlp_result(status, text, "rejectedDataPoints") end
+    if rejected > batch.points then disposition, rejected = "retry", 0 end
+    local accepted = disposition == "accepted"
+    if accepted then metrics_rejected = metrics_rejected + rejected end
+    if disposition == "drop" then
+        metrics_dropped = metrics_dropped + 1
+        metrics_rejected = metrics_rejected + batch.points
+        io.stderr:write("Flint2 metrics batch rejected with HTTP " .. tostring(status) .. "; discarding batch\n")
+    end
+    if disposition ~= "retry" then table.remove(metrics_queue, 1) end
+    if accepted == metrics_failed then
+        io.stderr:write(accepted and "Flint2 metrics delivery recovered\n" or "Flint2 metrics delivery failed\n")
+    end
+    metrics_failed = not accepted
+    return disposition ~= "retry"
+end
+
+if arg[1] == "--once" or arg[1] == "--metrics-once" then
+    collect()
+    if arg[1] == "--metrics-once" then
+        local body = metrics:build(sample_records, sample_cpu_text)
+        print(json.encode(body))
+    elseif config.format=="otlp_http_json" then print(json.encode(core.otlp(queue)))
+    else
+        for _, record in ipairs(queue) do
+            print(config.format=="ecs_ndjson" and json.encode(core.ecs_document(record)) or core.gelf_encode(record))
+        end
+    end
+    os.exit(0)
+end
+event("event", {event_type = "agent_start"}, "Flint2 telemetry agent started")
+local next_sample,next_logs,next_log_delivery,next_metric_delivery=0,0,0,0
+while true do
+    local now = socket.gettime()
+    if now>=next_sample then
+        local ok, err = pcall(collect)
+        collecting=false
+        if not ok then io.stderr:write("Flint2 collection error: " .. tostring(err) .. "\n") end
+        if ok and (config.metrics_enabled == "1" or config.metric_events_enabled == "1") then
+            local body, points = metrics:build(sample_records, sample_cpu_text)
+            if config.metrics_enabled == "1" then
+                metrics_dropped = metrics_dropped + core.enqueue(metrics_queue,
+                    {body = json.encode(body), points = points}, config.metrics_max_queue)
+            end
+            if config.metric_events_enabled == "1" then
+                for _, fields in ipairs(require("flint2.metrics").events(body)) do
+                    event("metric", fields, "Flint2 metric: " .. fields.metric_name)
+                end
+            end
+        end
+        next_sample=now+config.interval
+    end
+    if config.router_logs=="1" and now>=next_logs then collect_logs();next_logs=now+5 end
+    collect_flows()
+    if socket.gettime()>=next_log_delivery then
+        for _ = 1,4 do
+            if not deliver() then next_log_delivery=socket.gettime()+config.interval;break end
+            if #queue==0 then break end
+        end
+    end
+    if config.metrics_enabled == "1" and socket.gettime()>=next_metric_delivery then
+        for _ = 1,4 do
+            if not deliver_metrics() then next_metric_delivery=socket.gettime()+config.interval;break end
+            if #metrics_queue==0 then break end
+        end
+    end
+    socket.select(receivers,nil,math.max(0.05,math.min(1,next_sample-socket.gettime())))
+end

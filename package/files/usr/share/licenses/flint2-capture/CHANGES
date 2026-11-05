@@ -1,0 +1,10 @@
+Flint2 changes to pmacct 1.7.9 — 2026-11-05
+
+The corresponding-source bundle includes the unchanged upstream source archives
+and vendor/patches/0001-nfprobe-ring-publication.patch. This patch synchronizes
+shared-memory buffer publication/consumption, prevents accepting overwritten
+snapshots and preserves the original packet timestamps. The native capture
+build script applies it before compilation. The UCI/procd integration selects
+an eight-byte-aligned 264-byte plugin buffer for this ARM64 ABI.
+
+The upstream licenses continue to apply to the capture component and this patch.

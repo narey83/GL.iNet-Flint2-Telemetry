@@ -1,0 +1,80 @@
+#!/bin/sh /etc/rc.common
+export START=99
+export STOP=10
+export USE_PROCD=1
+
+start_capture() {
+	local interface="$1" port="$2" engine="$3" filter="$4"
+	case "$interface" in ''|*[!a-zA-Z0-9_.:-]*) return 1 ;; esac
+	[ "${#interface}" -le 15 ] || return 1
+	[ -d "/sys/class/net/$interface" ] || return 0
+	cat > "/var/run/flint2/capture-$engine.conf" <<EOF
+daemonize: false
+syslog: daemon
+pidfile: /var/run/flint2/capture-$engine.pid
+plugins: nfprobe
+# ARM64 record: 16-byte buffer header + 240-byte metadata + 3-byte extras.
+# Round 259 up to an 8-byte boundary: preserve extras and 64-bit field alignment.
+plugin_buffer_size: 264
+pcap_interface: $interface
+snaplen: 128
+pcap_filter: $filter
+nfprobe_receiver: 127.0.0.1:$port
+nfprobe_version: 5
+nfprobe_engine: 0:$engine
+nfprobe_maxflows: 8192
+nfprobe_timeouts: tcp=60:tcp.rst=5:tcp.fin=5:udp=30:icmp=10:general=60:maxlife=60:expint=10
+EOF
+	procd_open_instance "capture_$engine"
+	procd_set_param command /usr/sbin/flint2-capture -f "/var/run/flint2/capture-$engine.conf"
+	procd_set_param respawn 3600 5 5
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+start_service() {
+	local enabled capture wan lan_interfaces engine interface filter
+	config_load flint2
+	config_get_bool enabled main enabled 0
+	[ "$enabled" = 1 ] || return 0
+	/usr/bin/lua /usr/sbin/flint2-agent --check-config || return 1
+	mkdir -p /var/run/flint2
+	chmod 700 /var/run/flint2
+	procd_open_instance
+	procd_set_param command /usr/bin/lua /usr/sbin/flint2-agent
+	procd_set_param respawn 3600 5 5
+	procd_set_param file /etc/config/flint2 /etc/flint2/collector.crt
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+	/usr/libexec/flint2/firewall-events start || return 1
+	config_get_bool capture main flow_capture 1
+	if [ "$capture" = 1 ]; then
+		config_get wan main wan_interface auto
+		if [ "$wan" = auto ]; then wan=$(ubus call network.interface.wan status | jsonfilter -e '@.l3_device'); fi
+		config_get lan_interfaces main flow_lan_interface ''
+		filter=$(/usr/bin/lua /usr/sbin/flint2-agent --capture-filter)
+		[ -z "$wan" ] || start_capture "$wan" 42055 1 "$filter"
+		engine=2
+		for interface in $lan_interfaces; do
+			[ "$interface" != "$wan" ] || continue
+			start_capture "$interface" 42056 "$engine" "$filter"
+			engine=$((engine + 1))
+		done
+	fi
+}
+
+stop_service() {
+	/usr/libexec/flint2/firewall-events stop
+}
+
+flint2_network_trigger() {
+	procd_add_interface_trigger 'interface.*' "$1" /etc/init.d/flint2 reload
+}
+
+service_triggers() {
+	procd_add_reload_trigger flint2 network
+	config_load network
+	config_foreach flint2_network_trigger interface
+}

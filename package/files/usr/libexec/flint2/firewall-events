@@ -1,0 +1,43 @@
+#!/bin/sh
+# Package-owned LOG-only chains. No traffic is accepted, rejected or dropped here.
+set -eu
+action=${1:-start}
+wan=$(uci -q get flint2.main.wan_interface || true)
+wan=${wan:-auto}
+if [ "$wan" = auto ]; then wan=$(ubus call network.interface.wan status | jsonfilter -e '@.l3_device'); fi
+wan=${wan:-flint2-no-wan}
+case "$wan" in ''|*[!a-zA-Z0-9_.:-]*) exit 1 ;; esac
+enabled=$(uci -q get flint2.main.enabled || true)
+logging=$(uci -q get flint2.main.firewall_events || true)
+logging=${logging:-1}
+
+remove_jump() {
+	while iptables -C "$1" -j "$2" 2>/dev/null; do iptables -D "$1" -j "$2"; done
+}
+
+if [ "$action" = stop ] || [ "$enabled" != 1 ] || [ "$logging" != 1 ]; then
+	remove_jump FORWARD FLINT2_EVT_FWD
+	remove_jump zone_wan_src_DROP FLINT2_EVT_DROP
+	for chain in FLINT2_EVT_FWD FLINT2_EVT_DROP; do
+		if iptables -L "$chain" -n >/dev/null 2>&1; then iptables -F "$chain"; iptables -X "$chain"; fi
+	done
+	exit 0
+fi
+
+# Fail explicitly on unsupported firewall layouts rather than claiming visibility.
+iptables -L zone_wan_src_DROP -n >/dev/null
+for chain in FLINT2_EVT_FWD FLINT2_EVT_DROP; do
+	iptables -L "$chain" -n >/dev/null 2>&1 || iptables -N "$chain"
+	iptables -F "$chain"
+done
+iptables -A FLINT2_EVT_FWD -i "$wan" -m conntrack --ctstate NEW -m conntrack --ctstate DNAT \
+	-m limit --limit 50/second --limit-burst 250 -j LOG --log-prefix 'FLINT2 FORWARD wan in: '
+for interface in $(uci -q get flint2.main.vpn_interface || true); do
+	case "$interface" in ''|*[!a-zA-Z0-9_.:-]*) exit 1 ;; esac
+	[ "${#interface}" -le 15 ] || exit 1
+	iptables -A FLINT2_EVT_FWD -i "$interface" -m conntrack --ctstate NEW \
+		-m limit --limit 30/minute -j LOG --log-prefix 'FLINT2 FORWARD vpn in: '
+done
+iptables -A FLINT2_EVT_DROP -i "$wan" -m limit --limit 1/second -j LOG --log-prefix 'FLINT2 DROP wan in: '
+iptables -C FORWARD -j FLINT2_EVT_FWD 2>/dev/null || iptables -I FORWARD 1 -j FLINT2_EVT_FWD
+iptables -C zone_wan_src_DROP -j FLINT2_EVT_DROP 2>/dev/null || iptables -I zone_wan_src_DROP 1 -j FLINT2_EVT_DROP
