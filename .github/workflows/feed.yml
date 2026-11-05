@@ -1,0 +1,58 @@
+name: Publish signed Flint2 feed
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+permissions:
+  contents: read
+concurrency:
+  group: flint2-signed-feed
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y build-essential python3 shellcheck
+      - name: Build pinned OpenWrt signing tool
+        run: ./scripts/build-usign.sh
+      - name: Validate feed tooling
+        env:
+          FLINT2_TEST_USIGN: ${{ github.workspace }}/vendor/.cache/usign
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          python3 -m py_compile scripts/*.py tests/test_*.py
+          shellcheck scripts/build-usign.sh
+      - name: Prepare and sign published packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FEED_SIGNING_KEY: ${{ secrets.FLINT2_FEED_SIGNING_KEY }}
+        run: |
+          set -eu
+          umask 077
+          test -n "$FEED_SIGNING_KEY"
+          trap 'rm -f "$RUNNER_TEMP/flint2-feed.key"' EXIT
+          printf '%s\n' "$FEED_SIGNING_KEY" > "$RUNNER_TEMP/flint2-feed.key"
+          unset FEED_SIGNING_KEY
+          python3 scripts/publish-feed.py --secret-key "$RUNNER_TEMP/flint2-feed.key"
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: dist/site
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

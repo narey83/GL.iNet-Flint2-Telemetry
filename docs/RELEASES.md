@@ -11,6 +11,15 @@ The target is **GL-MT6000 vendor OpenWrt 21.02, musl, aarch64_cortex-a53,
 fw3/iptables**. This package is not a universal OpenWrt IPK. Other firmware ABIs,
 CPU architectures, fw4/nftables and IPv6 flow capture require separate qualification.
 
+## Signed feed publication
+
+Published qualified stable releases are also consumed by the separate signed-feed
+workflow. After its checks and Pages deployment succeed, LuCI/opkg clients can
+refresh their available packages. Draft build artifacts are never feed candidates.
+See [signed feed setup and maintenance](FEED.md) for its target label, public-key
+bootstrap and signing-key rotation. Release publishing and feed deployment are
+separate jobs; check both when diagnosing a delayed update.
+
 ## Download a published release
 
 [Release 0.3.1-6](https://github.com/narey83/GL.iNet-Flint2-Telemetry/releases/tag/v0.3.1-6)

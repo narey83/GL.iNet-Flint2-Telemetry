@@ -17,7 +17,7 @@ SOURCES = {
 def public_files(root):
     for name in ['LICENSE', 'README.md', 'ROADMAP.md', 'VALIDATION.md', 'CHANGELOG.md', '.gitignore']:
         yield root / name
-    for directory in ['docs', 'integrations', 'scripts', 'tests', 'package', 'deploy', '.github', 'vendor/patches']:
+    for directory in ['docs', 'integrations', 'feed', 'scripts', 'tests', 'package', 'deploy', '.github', 'vendor/patches']:
         for path in sorted((root / directory).rglob('*')):
             if not path.is_file() or path.is_symlink() or '__pycache__' in path.parts:
                 continue

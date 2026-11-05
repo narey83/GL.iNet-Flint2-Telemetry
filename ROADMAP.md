@@ -13,6 +13,12 @@
   bundles and draft releases from tags. Public releases include qualification notes.
 - ARM64 capture timestamp/flag fixes with bounded live regression checks.
 
+## Feed distribution
+
+- Signed community opkg feed on GitHub Pages, limited to the tested GL-MT6000 vendor
+  21.02 ABI, with a LuCI-uploadable public-key/feed setup package. Published stable
+  releases are validated before indexing; other targets need separate feed lanes.
+
 ## Planned work
 
 - Release qualification: measure router overhead and hardware-offload visibility,
@@ -21,7 +27,7 @@
 - Portability: fw4/nftables support, IPv6 flow capture, other firmware/CPU ABIs and
   additional clean-install backend examples. Keep backend-specific projections
   outside the agent's canonical contract.
-- Operations: package feed, optional bounded persistent buffering and managed
+- Operations: optional bounded persistent buffering and managed
   certificate renewal. Firmware upgrades can require reinstalling the IPK.
 - Additional observations: Wi-Fi station health, VPN state and DNS summaries using
   appropriate standard fields. WireGuard handshake/connection events are not yet

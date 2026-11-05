@@ -26,15 +26,48 @@ Start with the [documentation index](docs/README.md). See [the event contract](d
 [backend adapters](docs/BACKENDS.md). ECS and OTel semantic conventions are separate
 standards: ECS describes the event body; OTLP carries that body and typed attributes.
 
-## Graylog setup and dashboard imports
+## Dashboards and investigations
 
-The optional [Graylog setup guide](docs/integrations/GRAYLOG.md) covers a dedicated
-GELF input with native TLS, GUI configuration and native content-pack installation.
-**Caddy is optional:** direct Graylog HTTPS inputs work without a reverse proxy.
-[Download 10 dashboards with 183 widgets](integrations/graylog/) adapted from a
-working installation. The [catalogue](docs/integrations/GRAYLOG-DASHBOARDS.md)
-explains optional GeoIP/ASN/intelligence enrichments and the portable field mapping.
-The agent remains usable with other compatible logging and monitoring platforms.
+The optional Graylog content pack includes **10 dashboards, 13 pages and 183
+widgets**, adapted from a working Flint2 installation:
+
+| Dashboard | What you can investigate |
+| --- | --- |
+| Telemetry | Follow CPU, memory, temperature, connection-table capacity, WAN state, interfaces, device inventory and exporter health across four pages. |
+| Bandwidth & Traffic Spikes | Find top traffic peers and estimated service ports, compare directions, and inspect large observed flows. |
+| Inbound Access | Investigate forwarded inbound attempts, destination hosts and ports; enrich source context when available. |
+| LAN Devices | Break down local traffic by device labels, addresses, direction and guest/IoT network; find busy or unlabelled devices. |
+| Network Flow Threat Signals | Explore TCP flag aggregates, SYN-only flow records and high-volume indicators, with optional peer-intelligence matches. |
+| Perimeter Drop Map | Inspect blocked-traffic observations, targeted ports and source networks; map origins when GeoIP is configured. |
+| Router Vitals | Correlate system/interface samples with router warnings, authentication-related logs and other selected system events. |
+| Sources | See which router source names are reporting and how their record counts change over time. |
+| Threat Intel | Review source and flow-peer assessments from your configured intelligence providers alongside related drops and forwarded attempts. |
+| VPN Access | Review forwarded VPN attempts by source address, destination, private-host classification and port. |
+
+[Download the imports](integrations/graylog/) and follow the
+[Graylog setup guide](docs/integrations/GRAYLOG.md). Direct GELF HTTPS inputs work
+without Caddy; reverse proxies are optional. Metric charts need metric log copies
+enabled. Maps/ASN and intelligence panels need your own enrichment; the
+[full catalogue](docs/integrations/GRAYLOG-DASHBOARDS.md) explains the field contracts.
+
+These views describe observations: forwarded attempts are not confirmed connections,
+VPN events are not WireGuard handshakes, SYN/volume indicators are not confirmed
+attacks, and inventory does not prove a device is online. Captures can overlap and
+are not lossless traffic accounting. Other compatible platforms can use the agent's
+standard ECS/OTLP data with their own searches and dashboards.
+
+## Install and update through a signed feed
+
+Our [community signed feed](https://narey83.github.io/GL.iNet-Flint2-Telemetry/)
+is specifically labelled for **GL-MT6000 vendor OpenWrt 21.02 / musl / fw3 /
+aarch64_cortex-a53**. Install its small setup IPK through **LuCI → System → Software
+→ Upload Package**, then click **Update lists** and search for `flint2-telemetry`.
+Future qualified published versions can be installed/upgraded from the same list.
+
+The setup package registers the public signing key and its own feed definition;
+it does not start telemetry or alter the vendor feeds. Follow the
+[feed setup, compatibility and trust guide](docs/FEED.md) before installing it.
+This is not an official OpenWrt feed or a package source for other firmware ABIs.
 
 ## Download an IPK
 

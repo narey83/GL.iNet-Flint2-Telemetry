@@ -1,0 +1,12 @@
+[
+  {"name":"Telemetry","widgets":43,"capability":"Follow CPU, memory, temperature, connection-table capacity, WAN state, interfaces, device inventory and exporter health across four pages."},
+  {"name":"Bandwidth & Traffic Spikes","widgets":18,"capability":"Find top traffic peers and estimated service ports, compare directions, and inspect large observed flows."},
+  {"name":"Inbound Access","widgets":18,"capability":"Investigate forwarded inbound attempts, destination hosts and ports; enrich source context when available."},
+  {"name":"LAN Devices","widgets":18,"capability":"Break down local traffic by device labels, addresses, direction and guest/IoT network; find busy or unlabelled devices."},
+  {"name":"Network Flow Threat Signals","widgets":21,"capability":"Explore TCP flag aggregates, SYN-only flow records and high-volume indicators, with optional peer-intelligence matches."},
+  {"name":"Perimeter Drop Map","widgets":17,"capability":"Inspect blocked-traffic observations, targeted ports and source networks; map origins when GeoIP is configured."},
+  {"name":"Router Vitals","widgets":15,"capability":"Correlate system/interface samples with router warnings, authentication-related logs and other selected system events."},
+  {"name":"Sources","widgets":3,"capability":"See which router source names are reporting and how their record counts change over time."},
+  {"name":"Threat Intel","widgets":17,"capability":"Review source and flow-peer assessments from your configured intelligence providers alongside related drops and forwarded attempts."},
+  {"name":"VPN Access","widgets":13,"capability":"Review forwarded VPN attempts by source address, destination, private-host classification and port."}
+]
