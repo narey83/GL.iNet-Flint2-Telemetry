@@ -23,5 +23,6 @@ jobs:
           lua5.1 tests/sources.lua
           lua5.1 tests/standards.lua
           lua5.1 tests/platform.lua
+          lua5.1 tests/nft.lua
       - run: shellcheck -s dash -x package/files/etc/init.d/flint2 package/files/usr/libexec/flint2/firewall-events package/files/etc/uci-defaults/* package/postinst package/prerm tests/*.sh openwrt/*/test.sh
-      - run: shellcheck scripts/build-capture.sh scripts/build-usign.sh
+      - run: shellcheck scripts/build-capture.sh scripts/build-usign.sh scripts/build-openwrt.sh

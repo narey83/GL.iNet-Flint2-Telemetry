@@ -26,43 +26,18 @@ fi
 if command -v fw4 >/dev/null 2>&1; then
 	batch=$(mktemp)
 	trap 'rm -f "$batch"' EXIT HUP INT TERM
-	for chain in forward drop_from_wan reject_from_wan; do
-		# Handles are obtained from our exact comment, not from rule text supplied
-		# by UCI. Only decimal handles in the known fw4 table are used.
-		nft -a list chain inet fw4 "$chain" 2>/dev/null | awk -v chain="$chain" '
-		index($0, "comment \"!flint2\"") && $(NF-1)=="handle" && $NF ~ /^[0-9]+$/ {
-			print "delete rule inet fw4 " chain " handle " $NF
-		}' >> "$batch" || true
-	done
-	for chain in flint2_evt_fwd flint2_evt_drop flint2_evt_reject; do
-		if nft list chain inet fw4 "$chain" >/dev/null 2>&1; then
-			printf 'flush chain inet fw4 %s\ndelete chain inet fw4 %s\n' "$chain" "$chain" >> "$batch"
-		fi
-	done
-	if [ "$action" != stop ] && [ "$enabled" = 1 ] && [ "$logging" = 1 ]; then
-		nft list chain inet fw4 forward >/dev/null
-		printf 'add chain inet fw4 flint2_evt_fwd\n' >> "$batch"
-		printf 'add rule inet fw4 flint2_evt_fwd meta nfproto ipv4 iifname "%s" ct state new ct status dnat limit rate 50/second burst 250 packets log prefix "FLINT2 FORWARD wan in: "\n' "$wan" >> "$batch"
-		for interface in $vpn_interfaces; do
-			printf 'add rule inet fw4 flint2_evt_fwd meta nfproto ipv4 iifname "%s" ct state new limit rate 30/minute log prefix "FLINT2 FORWARD vpn in: "\n' "$interface" >> "$batch"
-		done
-		printf 'insert rule inet fw4 forward jump flint2_evt_fwd comment "!flint2"\n' >> "$batch"
-		found=0
-		for verdict in drop reject; do
-			if nft list chain inet fw4 "${verdict}_from_wan" >/dev/null 2>&1; then
-				found=1
-				prefix=DROP
-				[ "$verdict" != reject ] || prefix=REJECT
-				{
-					printf 'add chain inet fw4 flint2_evt_%s\n' "$verdict"
-					printf 'add rule inet fw4 flint2_evt_%s meta nfproto ipv4 iifname "%s" limit rate 1/second log prefix "FLINT2 %s wan in: "\n' "$verdict" "$wan" "$prefix"
-					printf 'insert rule inet fw4 %s_from_wan jump flint2_evt_%s comment "!flint2"\n' "$verdict" "$verdict"
-				} >> "$batch"
-			fi
-		done
-		[ "$found" = 1 ] || { echo 'Flint2: no fw4 WAN drop/reject chain available' >&2; exit 1; }
+	snapshot="$batch.rules"
+	trap 'rm -f "$batch" "$snapshot"' EXIT HUP INT TERM
+	if ! nft -j list table inet fw4 > "$snapshot" 2>/dev/null; then
+		[ "$action" = stop ] || [ "$enabled" != 1 ] || [ "$logging" != 1 ]
+		exit "$?"
 	fi
-	[ ! -s "$batch" ] || nft -f "$batch"
+	active=0
+	if [ "$action" = start ] && [ "$enabled" = 1 ] && [ "$logging" = 1 ]; then active=1; fi
+	# Interface tokens were validated above; deliberately split UCI's list here.
+	# shellcheck disable=SC2086
+	lua /usr/libexec/flint2/firewall-nft.lua "$active" "$wan" $vpn_interfaces < "$snapshot" > "$batch"
+	[ ! -s "$batch" ] || nft -j -f "$batch" > /dev/null
 	exit 0
 fi
 
