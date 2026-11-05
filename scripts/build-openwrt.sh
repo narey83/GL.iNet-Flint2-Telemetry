@@ -43,6 +43,9 @@ find bin -type f \( -name 'flint2-*.apk' -o -name 'luci-app-flint2-telemetry-*.a
     -exec cp '{}' "$work/artifacts/" \;
 cp "$work/sdk.sha256" "$work/feeds.buildinfo" "$work/defconfig.log" "$work/artifacts/"
 cp feeds.conf "$work/artifacts/"
+cp public-key.pem "$work/artifacts/"
+cp -R "$root/openwrt" "$work/artifacts/recipes"
 git -C "$root" rev-parse HEAD > "$work/artifacts/project-commit.txt"
-find "$work/artifacts" -type f -name '*.apk' | sort | xargs sha256sum > "$work/artifacts/SHA256SUMS"
+cd "$work/artifacts"
+sha256sum ./*.apk public-key.pem > SHA256SUMS
 printf 'Packages and build evidence: %s/artifacts\n' "$work"

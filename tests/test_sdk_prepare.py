@@ -47,5 +47,5 @@ class SdkPrepareTests(unittest.TestCase):
             other = sdk / 'staging_dir/unrelated.txt'
             other.write_text('/builder/shared-workdir/build/staging_dir/')
             module.prepare(sdk)
-            self.assertEqual(archive.read_text(), f"libdir='{sdk}/staging_dir/toolchain/lib'\n")
+            self.assertEqual(archive.read_text(), f"libdir='{sdk.resolve()}/staging_dir/toolchain/lib'\n")
             self.assertEqual(other.read_text(), '/builder/shared-workdir/build/staging_dir/')
