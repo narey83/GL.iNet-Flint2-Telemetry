@@ -21,6 +21,10 @@
 
 ## Planned work
 
+- Official OpenWrt inclusion: [submission preparation](docs/OPENWRT-SUBMISSION.md)
+  records the maintainer and package split. Current-master source builds,
+  fw4 support, dependency cleanup and runtime qualification remain prerequisites;
+  no upstream pull request has been submitted.
 - Release qualification: measure router overhead and hardware-offload visibility,
   review dependency advisories and expand the tested firmware/version matrix.
   Existing live checks do not establish lossless accounting or a throughput benchmark.
