@@ -199,3 +199,8 @@ lines preserve upstream whitespace for exact application.
 Package 0.3.1-3 updates the project help URL to the renamed
 `narey83/GL.iNet-Flint2-Telemetry` repository. Collection and native capture
 behavior are unchanged.
+
+The initial GitHub run passed Python, Node and Lua but its older ShellCheck did
+not recognize the `busybox` dialect. CI now uses the supported `dash` dialect for
+the ash-compatible scripts (including local variables), without disabling any
+checks. The same command passed locally.

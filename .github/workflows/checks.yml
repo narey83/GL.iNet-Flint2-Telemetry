@@ -19,5 +19,5 @@ jobs:
           lua5.1 tests/metrics.lua
           lua5.1 tests/sources.lua
           lua5.1 tests/standards.lua
-      - run: shellcheck -s busybox -x package/files/etc/init.d/flint2 package/files/usr/libexec/flint2/firewall-events package/postinst package/prerm tests/*.sh
+      - run: shellcheck -s dash -x package/files/etc/init.d/flint2 package/files/usr/libexec/flint2/firewall-events package/postinst package/prerm tests/*.sh
       - run: shellcheck scripts/build-capture.sh
