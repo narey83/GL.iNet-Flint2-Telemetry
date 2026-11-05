@@ -37,6 +37,10 @@ rejecting.expr={filter, {jump={target="handle_reject"}}}
 denial.expr={filter, {limit={rate=1, per="second"}}, {drop=json.null}}
 assert(not pcall(nft.build, snapshot, true, "eth0", {}), "stateful deny match copied")
 denial.expr={filter, {drop=json.null}}
+local deterministic = denial.expr
+denial.expr={{match={op="==", left={numgen={mode="random", mod=2}}, right=0}}, {drop=json.null}}
+assert(not pcall(nft.build, snapshot, true, "eth0", {}), "random match duplicated")
+denial.expr=deterministic
 chain("flint2_evt_fwd")
 rule("forward", {{jump={target="flint2_evt_fwd"}}}, "!flint2", 123)
 rule("forward", {{jump={target="unrelated"}}}, "!flint2", 456)
