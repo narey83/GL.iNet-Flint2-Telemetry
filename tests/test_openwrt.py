@@ -23,7 +23,8 @@ class OpenWrtSourcesTests(unittest.TestCase):
     def test_standalone_capture_patches_match_vendor_build(self):
         source = ROOT / 'vendor/patches'
         target = ROOT / 'openwrt/flint2-capture/patches'
-        self.assertEqual(sorted(p.name for p in source.glob('*.patch')),
+        self.assertEqual(sorted(p.name for p in source.glob('*.patch')) +
+                         ['0003-reproducible-build-description.patch'],
                          sorted(p.name for p in target.glob('*.patch')))
         for path in source.glob('*.patch'):
             self.assertEqual(path.read_bytes(), (target / path.name).read_bytes())

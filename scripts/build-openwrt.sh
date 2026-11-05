@@ -26,7 +26,10 @@ sed -n '/^src-git --root=package base /p' feeds.conf.default > feeds.conf
 cat "$work/feeds.buildinfo" >> feeds.conf
 python3 "$root/scripts/prepare-openwrt-sdk.py" "$sdk"
 ./scripts/feeds update -a
-./scripts/feeds install -a
+# Install this dependency closure, rather than every unrelated application in
+# all feeds (which can introduce their own mutually exclusive Kconfig options).
+./scripts/feeds install libpcap lua lua-cjson luasocket luaposix libuci-lua ubus \
+    curl ca-bundle jsonfilter coreutils-timeout firewall4 luci-base
 for package in flint2-capture flint2-telemetry luci-app-flint2-telemetry; do
     [ ! -e "package/$package" ] || { echo "Package already exists: $package" >&2; exit 1; }
     cp -R "$root/openwrt/$package" "package/$package"
