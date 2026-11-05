@@ -26,6 +26,15 @@ See [the event contract](docs/SCHEMA.md), [configuration](docs/CONFIGURATION.md)
 [backend adapters](docs/BACKENDS.md). ECS and OTel semantic conventions are separate
 standards: ECS describes the event body; OTLP carries that body and typed attributes.
 
+## Graylog setup and dashboard imports
+
+The optional [Graylog setup guide](docs/integrations/GRAYLOG.md) covers a dedicated
+GELF input, HTTPS, router configuration and native content-pack installation.
+[Download 10 dashboards with 183 widgets](integrations/graylog/) adapted from a
+working installation. The [catalogue](docs/integrations/GRAYLOG-DASHBOARDS.md)
+explains optional GeoIP/ASN/intelligence enrichments and the portable field mapping.
+The agent remains usable with other compatible logging and monitoring platforms.
+
 ## Build
 
 The current native capture asset targets `aarch64_cortex-a53`, OpenWrt 21.02 musl.

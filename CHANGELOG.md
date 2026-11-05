@@ -1,5 +1,12 @@
 # Changes
 
+## Integration documentation
+
+- Add Graylog HTTPS/input/router setup, a dashboard catalogue, optional-enrichment
+  field contracts and a native import with 10 dashboards / 183 widgets.
+- Parameterize the input ID, retain canonical ECS fields and exclude source-site
+  data. Validate native installation, all queries and isolated pipeline scenarios.
+
 ## 0.3.1-3
 
 - Synchronize the native capture ring on ARM64, publish complete records before

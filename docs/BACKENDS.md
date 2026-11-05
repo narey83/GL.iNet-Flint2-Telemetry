@@ -23,4 +23,4 @@ storage, dashboards and alerting belong to the chosen backend.
 
 Backend-specific projections and dashboards remain optional integrations, outside
 the agent's ECS/OTLP contract. See the [optional Graylog integration](integrations/GRAYLOG.md)
-for its input provisioning and legacy dashboard migration tools.
+for the HTTPS/input setup guide and downloadable native dashboard content pack.

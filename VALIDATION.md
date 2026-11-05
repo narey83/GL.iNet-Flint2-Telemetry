@@ -204,3 +204,35 @@ The initial GitHub run passed Python, Node and Lua but its older ShellCheck did
 not recognize the `busybox` dialect. CI now uses the supported `dash` dialect for
 the ash-compatible scripts (including local variables), without disabling any
 checks. The same command passed locally.
+
+
+## Portable Graylog dashboard content pack
+
+The published revision-1 JSON contains ten dashboards, thirteen pages, 183 widgets,
+one input-scoped stream, sixteen backend-only projection rules and one pipeline.
+It was installed on Graylog 4.3.15 under a temporary content-pack ID with a placeholder
+input ID. All 28 entities were new, not reused originals. The stream's exact input
+selector prevents accidental matching while reviewing the import. It was explicitly
+paused for the final checks: this server ignores the stream entity's disabled flag
+on installation, which is documented in the setup guide.
+
+All imported widget searches executed against a 60-second window of existing real
+telemetry with zero query/search-type errors. Ten simulator cases passed, covering
+SYN/SYN-ACK/ACK/RST/FIN masks, outbound UDP volume, port choice, byte/packet thresholds,
+private/public VPN destinations and unrelated modules/datasets. Checks verified
+canonical fields were not changed. Simulator messages were never sent to an input;
+a subsequent index search found zero of these messages. Optional GeoIP/ASN/threat
+provider data was not exported or simulated as real enrichment.
+
+The initial attempts exposed differences between saved searches and native content-
+pack entities (message-list fields and enum-valued stream-rule types). Corrected
+artifacts installed successfully. The final temporary installation and uploaded
+definition were removed. All original ten dashboard objects and saved searches
+matched their pre-export definitions exactly, and no temporary stream remained.
+
+Fifteen Python tests passed, including artifact checksum, all widget/search/position
+references, exact input/stream scoping, original-ID/address exclusions and the rule
+write namespace. The source bundler now includes the integration definitions.
+Python compilation, Node LuCI checks and ShellCheck also passed. No runtime agent
+or router configuration change was needed for the documentation/import addition.
+Other Graylog versions and external GeoIP/intelligence providers were not tested.

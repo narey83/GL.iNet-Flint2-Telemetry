@@ -13,6 +13,7 @@ class SourceBundleTests(unittest.TestCase):
     def test_public_allowlist_excludes_site_material_and_binary_assets(self):
         names = [p.relative_to(ROOT).as_posix() for p in module.public_files(ROOT)]
         self.assertIn('scripts/build-capture.sh', names)
+        self.assertIn('integrations/graylog/flint2-dashboards.json', names)
         self.assertIn('vendor/patches/0001-nfprobe-ring-publication.patch', names)
         self.assertIn('package/files/usr/share/licenses/flint2-capture/THIRD-PARTY-LICENSES', names)
         for name in names:
