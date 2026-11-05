@@ -1,6 +1,7 @@
 # Graylog setup
 
-Send Flint2 telemetry to a dedicated GELF HTTP input over HTTPS, then import the
+Send Flint2 telemetry directly to a dedicated GELF HTTP input with TLS enabled,
+or use an optional HTTPS reverse proxy. **Caddy is not required.** Then import the
 [dashboard content pack](../../integrations/graylog/flint2-dashboards.json).
 The pack adapts the layouts of a working installation: **10 dashboards, 13 pages
 and 183 widgets**. It contains definitions, not captured events or site lookup data.
@@ -23,29 +24,59 @@ In **System → Inputs**, choose **GELF HTTP**, launch an input and name it
 - If TLS terminates at a reverse proxy, keep the plain HTTP input private to that
   proxy. Its ingestion path is `/gelf`.
 
-For a containerized Graylog with a reverse proxy running on the host, the input
-can bind to `0.0.0.0` inside the container while Docker publishes it only on the
-host loopback address:
-
-```yaml
-# Add to your existing Graylog service, preserving its other settings.
-ports:
-  - "127.0.0.1:12201:12201/tcp"
-```
-
-If both services are containers, use a private shared Docker network and proxy to
-`graylog:12201`; do not use `127.0.0.1` to reach another container. Do not expose a
-plain GELF HTTP listener directly to the Internet.
-
 Copy this input's ID from its details/link. You will supply it when installing the
 content pack; the ID belongs to your server and is not included in the download.
 
-## 2. Provide a trusted HTTPS endpoint
+## 2. Choose direct TLS or an optional reverse proxy
 
-The following **host-based Caddy** example accepts only the router's source address.
-Replace the example hostname and set `FLINT2_ROUTER_IP` to the address the proxy
-actually sees. It may be a NAT address. Apply the restriction at your trusted edge;
-a shared source address does not distinguish individual senders.
+### Direct Graylog HTTPS input — no proxy required
+
+On the **GELF HTTP input**, enable TLS and supply the certificate chain and private
+key paths readable by the Graylog process. Use a certificate valid for the hostname
+(or IP SAN) the router will connect to. Some versions require a PKCS#8 PEM private
+key; follow the input's TLS requirements. Keep the private key on the Graylog server.
+The input's HTTPS address is separate from the Graylog web/API HTTPS configuration.
+
+For example, with TLS on input port 12201, use:
+
+```text
+https://graylog.example.net:12201/gelf
+```
+
+For Docker, mount your certificate directory read-only and use the paths **inside
+that container** in the input settings. Publish the TLS port on the appropriate
+server/LAN address, for example:
+
+```yaml
+# Add to your existing Graylog service, preserving its other settings.
+volumes:
+  - ./graylog-input-tls:/etc/graylog/input-tls:ro
+ports:
+  - "12201:12201/tcp"
+```
+
+The input can bind to `0.0.0.0` inside the container. Restrict access to trusted
+senders using the host/network firewall; the Docker example publishes on all host
+addresses, so narrow that binding when appropriate. GELF inputs do not automatically
+validate Graylog API tokens. This agent supports server-authenticated TLS; input
+configurations requiring TLS client certificates are not supported by its current
+exporter.
+
+Use a publicly trusted certificate or install your private CA's **public certificate**
+on the router and select its path in the telemetry GUI. Never copy the server's
+private key to the router or disable certificate verification.
+
+Graylog documents [GELF input options](https://go2docs.graylog.org/current/getting_in_log_data/gelf.html)
+and [securing inputs with TLS](https://go2docs.graylog.org/current/getting_in_log_data/secure_inputs_with_tls.htm).
+Those guides describe current releases; use the options available in your installed version.
+
+### Optional reverse proxy
+
+A reverse proxy can provide certificate management, access restrictions or header
+authentication. Any compatible HTTPS proxy can be used. If TLS terminates there,
+keep the plain GELF HTTP input private to it and forward to `/gelf`.
+
+For host-based Caddy, an example is:
 
 ```caddyfile
 telemetry.example.net {
@@ -63,21 +94,40 @@ telemetry.example.net {
 }
 ```
 
-The hostname/path are examples: use your own HTTPS address. Use a publicly trusted
-certificate or install your private CA's **public certificate** on the router.
-Never disable certificate verification. If you choose header authentication at the
-proxy, configure the corresponding owner-only header file on the router as shown
-in [configuration](../CONFIGURATION.md). Graylog API tokens are for administration;
-they do not automatically authenticate a GELF input.
+Set `FLINT2_ROUTER_IP` to the address the proxy actually sees. For a host proxy and
+containerized Graylog, publish its plain input on host loopback only, such as
+`127.0.0.1:12201:12201/tcp`. If both services are containers, use a private shared
+network and proxy to `graylog:12201`; `127.0.0.1` does not reach another container.
+Use your own hostname and path. Do not expose a plain GELF HTTP listener directly
+to the Internet.
+
+For proxy header authentication, configure the owner-only header file described in
+[configuration](../CONFIGURATION.md). An API token for Graylog administration is
+not automatically an ingestion credential.
 
 ## 3. Configure the router
 
 Install a compatible IPK using the [main installation guide](../../README.md#install-and-configure).
-Then select the optional GELF transport:
+In **LuCI → Services → Flint2 Telemetry**, choose:
+
+| GUI control | Graylog-only setting |
+| --- | --- |
+| Enable telemetry | On |
+| Log export format | GELF over HTTPS |
+| Log HTTPS endpoint | Your direct input URL, for example `https://graylog.example.net:12201/gelf`, or your optional proxy URL |
+| Log CA certificate file | System CA bundle or your installed public CA certificate |
+| Send metrics as log events | On |
+| Export native OpenTelemetry metrics | Off, unless you have a separate metrics-capable receiver |
+
+Click **Save & Apply**. The form validates its values, commits UCI changes and
+reloads telemetry; the service checks its configuration before starting. There is
+no need to run the commands below for ordinary GUI configuration.
+
+For headless systems, the equivalent UCI configuration is:
 
 ```sh
 uci set flint2.main.format='gelf'
-uci set flint2.main.endpoint='https://telemetry.example.net/flint2-telemetry'
+uci set flint2.main.endpoint='https://graylog.example.net:12201/gelf'
 uci set flint2.main.metrics_enabled='0'
 uci set flint2.main.metric_events_enabled='1'
 uci set flint2.main.enabled='1'
@@ -155,7 +205,7 @@ capture is lossless.
 
 | Symptom | Check |
 | --- | --- |
-| No records at the input | Input running, DNS, router clock, TLS trust, proxy access rules, POST path and HTTP error logs |
+| No records at the input | Input running, DNS, router clock, TLS trust, published port/firewall rules, POST path and any optional proxy restrictions |
 | Input gets records but stream is empty | Input-ID rule, `event_module:flint2`, and stream running state |
 | Core records exist but derived fields do not | Pipeline connected to the new stream, message processor order, and fresh records after import |
 | Metric charts are empty | `metric_events_enabled=1`; allow two samples for CPU/rates |

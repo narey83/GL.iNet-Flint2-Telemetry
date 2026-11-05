@@ -20,6 +20,26 @@ function validateDevices(value, maximum, optional) {
     return true;
 }
 
+function validateHttps(section, value) {
+    if (!/^https:\/\/[A-Za-z0-9.-]+(?::[0-9]+)?\/[A-Za-z0-9_/-]+$/.test(value || ''))
+        return _('Use an HTTPS URL with a hostname and path, without credentials, query parameters or fragments.');
+    var port = value.match(/^https:\/\/[^/]+:([0-9]+)\//);
+    if (port && (+port[1] < 1 || +port[1] > 65535))
+        return _('Use a port between 1 and 65535.');
+    return true;
+}
+
+function validatePath(section, value) {
+    return /^\/[A-Za-z0-9/_.-]+$/.test(value || '') ? true : _('Use an absolute certificate file path.');
+}
+
+// Older LuCI releases remove inactive dependent fields even with retain=true.
+// Delegate normal empty-field removal only while the control is visible.
+function removeWhenActive(section) {
+    if (this.isActive(section))
+        return form.Value.prototype.remove.call(this, section);
+}
+
 return view.extend({
     load: function() {
         return Promise.all([uci.load('flint2'), network.getDevices()]);
@@ -27,23 +47,59 @@ return view.extend({
 
     render: function(data) {
         var m = new form.Map('flint2', _('Flint2 Telemetry'),
-            _('Choose existing network devices to monitor, or enter a device name for a VPN or VLAN that is currently absent. Save & Apply reloads telemetry. These settings do not create or reconfigure network interfaces.'));
+            _('Configure telemetry delivery and choose existing network devices to monitor. Save & Apply validates the form, commits these settings and reloads telemetry. The service checks its configuration before starting. These settings do not create or reconfigure network interfaces.'));
         var s = m.section(form.NamedSection, 'main', 'agent');
         s.addremove = false;
         var o;
 
-        o = s.option(form.DummyValue, '_telemetry_enabled', _('Telemetry'));
-        o.cfgvalue = function() {
-            return uci.get('flint2', 'main', 'enabled') === '1' ? _('Enabled in configuration') : _('Disabled in configuration');
-        };
+        o = s.option(form.Flag, 'enabled', _('Enable telemetry'),
+            _('Collect and export telemetry using the configured destinations.'));
+        o.default = '0';
+        o.rmempty = false;
 
-        o = s.option(form.DummyValue, '_export_destination', _('Configured log destination'));
-        o.description = _('Read from this router’s configuration. Each installation configures its own collector or SIEM endpoint.');
-        o.cfgvalue = function() {
-            var names = { gelf: 'GELF over HTTPS', otlp_http_json: 'OpenTelemetry logs', ecs_ndjson: 'ECS NDJSON' };
-            var format = uci.get('flint2', 'main', 'format') || 'gelf';
-            return (names[format] || format) + ' — ' + (uci.get('flint2', 'main', 'endpoint') || _('Not configured'));
-        };
+        o = s.option(form.ListValue, 'format', _('Log export format'));
+        o.value('otlp_http_json', _('OpenTelemetry logs (OTLP/HTTP JSON)'));
+        o.value('ecs_ndjson', _('ECS NDJSON over HTTPS'));
+        o.value('gelf', _('GELF over HTTPS'));
+        o.default = 'gelf';
+        o.rmempty = false;
+
+        o = s.option(form.Value, 'endpoint', _('Log HTTPS endpoint'),
+            _('Your logging platform or collector URL, including its port and input path. Direct HTTPS inputs and optional reverse proxies are supported. Each installation supplies its own destination.'));
+        o.rmempty = false;
+        o.validate = validateHttps;
+
+        o = s.option(form.Value, 'ca_file', _('Log CA certificate file'),
+            _('Use the system CA bundle or the path to an installed public CA certificate. TLS verification is always enabled.'));
+        o.default = '/etc/ssl/certs/ca-certificates.crt';
+        o.rmempty = false;
+        o.validate = validatePath;
+
+        o = s.option(form.Flag, 'metric_events_enabled', _('Send metrics as log events'),
+            _('Send metric point copies through the log output so logging platforms can search and chart them. These are separate from native metrics.'));
+        o.default = '1';
+        o.rmempty = false;
+
+        o = s.option(form.Flag, 'metrics_enabled', _('Export native OpenTelemetry metrics'),
+            _('Send the separate OTLP metrics signal to a metrics-capable destination. Disable this when using only a logging input.'));
+        o.default = '0';
+        o.rmempty = false;
+
+        o = s.option(form.Value, 'metrics_endpoint', _('Metrics HTTPS endpoint'),
+            _('The native OTLP/HTTP JSON metrics receiver URL, normally ending in /v1/metrics.'));
+        o.depends('metrics_enabled', '1');
+        o.retain = true;
+        o.remove = removeWhenActive;
+        o.rmempty = false;
+        o.validate = validateHttps;
+
+        o = s.option(form.Value, 'metrics_ca_file', _('Metrics CA certificate file'),
+            _('Leave empty to use the log CA certificate file.'));
+        o.depends('metrics_enabled', '1');
+        o.retain = true;
+        o.remove = removeWhenActive;
+        o.rmempty = true;
+        o.validate = function(section, value) { return value ? validatePath(section, value) : true; };
 
         o = s.option(widgets.DeviceSelect, 'interface', _('Statistics interfaces'),
             _('Collect interface counters and rates. WAN counters are added automatically. Bridge and physical-port counters can describe the same traffic; do not add their totals together.'));
@@ -74,6 +130,7 @@ return view.extend({
         o.noaliases = true;
         o.rmempty = true;
         o.retain = true;
+        o.remove = removeWhenActive;
         o.depends('flow_capture', '1');
         o.validate = function(section, value) { return validateDevices(value, 8, true); };
 
@@ -88,6 +145,7 @@ return view.extend({
         o.noaliases = true;
         o.rmempty = true;
         o.retain = true;
+        o.remove = removeWhenActive;
         o.depends('firewall_events', '1');
         o.validate = function(section, value) { return validateDevices(value, 8, true); };
 
@@ -115,7 +173,7 @@ return view.extend({
                     E('details', {}, [
                         E('summary', {}, _('Connect to logging and monitoring platforms')),
                         E('p', {}, _('Send logs and flow observations as OpenTelemetry logs, ECS NDJSON or GELF over HTTPS. Send native metrics using OTLP/HTTP JSON to a metrics-capable destination. Use a compatible OpenTelemetry Collector when your logging or monitoring platform needs a supported exporter or adapter.')),
-                        E('p', {}, _('This page controls monitored interfaces. Configure your own HTTPS endpoints and delivery settings in /etc/config/flint2. Optional metric event copies let logging platforms search measurements as log records; native metrics remain a separate signal. Destination support depends on the formats it accepts.'))
+                        E('p', {}, _('Choose your log format, HTTPS endpoint and metric outputs below, then Save & Apply. Optional metric event copies let logging platforms search measurements as log records; native metrics remain a separate signal. Advanced authentication header files and queue settings are available through UCI. Destination support depends on the formats it accepts.'))
                     ]),
                     E('p', {}, [E('a', { href: 'https://github.com/narey83/GL.iNet-Flint2-Telemetry#readme', target: '_blank', rel: 'noopener noreferrer' }, _('Documentation, setup and supported destinations on GitHub'))]),
                     E('details', {}, [

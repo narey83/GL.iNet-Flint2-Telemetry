@@ -1,6 +1,6 @@
 {
     "luci-app-flint2-telemetry": {
-        "description": "Configure Flint2 telemetry interface selection",
+        "description": "Configure Flint2 telemetry exports and monitored interfaces",
         "read": {
             "uci": [ "flint2", "network", "wireless" ],
             "ubus": {

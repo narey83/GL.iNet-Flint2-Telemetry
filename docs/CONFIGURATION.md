@@ -66,7 +66,13 @@ With LuCI installed, use Services → Flint2 Telemetry. The interface selectors 
 existing devices and valid custom names (maximum 15 characters). Statistics lists
 allow up to 32 devices; local capture and VPN lists allow eight each. Duplicate
 entries are rejected. Capture/firewall switches retain their selections while off.
-The page displays its capabilities and the current log destination. Export settings
-remain in UCI. Empty selections are respected, and choosing a missing VPN name does
+The page also controls telemetry enablement, log export format/HTTPS endpoint,
+CA certificate path, metric event copies and native OTLP metrics. Native metrics
+have their own HTTPS endpoint and optional CA override (empty inherits the log CA).
+Disabling native metrics retains their configured destination. HTTPS inputs can
+be reached directly; no reverse proxy or Caddy dependency is required. Advanced
+authentication header paths and queue settings remain in UCI. Save & Apply commits
+the validated form and reloads the service, which checks its configuration before
+starting. Empty selections are respected, and choosing a missing VPN name does
 not enable or start the VPN. WireGuard connection/handshake logging is not yet part
 of this agent; forwarded traffic observations are separate from tunnel establishment.

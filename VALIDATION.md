@@ -236,3 +236,33 @@ write namespace. The source bundler now includes the integration definitions.
 Python compilation, Node LuCI checks and ShellCheck also passed. No runtime agent
 or router configuration change was needed for the documentation/import addition.
 Other Graylog versions and external GeoIP/intelligence providers were not tested.
+
+
+## LuCI export controls and direct TLS guidance — 0.3.1-6
+
+The LuCI page now exposes enabled, format, log endpoint/CA trust, metric log copies
+and native metrics with their own endpoint and optional CA override. Node checks
+exercise accepted direct GELF HTTPS host/port paths, all three format choices,
+invalid/insecure/credential-bearing URLs and conditional metrics controls. The
+write ACL remains limited to Flint2 configuration, with no shell execution grants.
+
+The local profile IPK was installed on GL-MT6000. Browser checks showed the current
+GELF profile, all three formats, conditional native metrics endpoint/CA fields and
+an inline rejection of an HTTP URL. Save & Apply and the service configuration check
+ran. The first apply exposed legacy LuCI 21.02 ignoring retain=true and removing an
+inactive metrics endpoint. An explicit active-only remove handler fixes that for
+metrics destinations and dependent interface lists, while preserving normal removal
+of visible optional fields. Node regression checks cover both behaviors. The lost
+endpoint was restored through the GUI; the final UCI comparison matched every
+original value, allowing interface-list ordering differences. Native metrics remain
+disabled, metric event copies enabled, and the original interface/alias profile is
+preserved. WireGuard remained up.
+
+The installed Graylog 4.3.15 GELF HTTP input type was queried read-only: it exposes
+Enable TLS, TLS cert/key paths, TLS key password, client-auth mode and bulk receiving.
+The guide now describes a direct TLS input and Docker TLS port/certificate setup
+before the optional proxy example. No Caddy dependency exists in the agent/package.
+The existing site ingestion path was not migrated to a new Graylog TLS listener;
+the direct-input guide is based on the server's exposed options and official docs,
+not a claim of a new end-to-end Graylog direct-TLS deployment. Client-certificate
+(mTLS-required) inputs are not supported by the current exporter.

@@ -1,5 +1,13 @@
 # Changes
 
+## 0.3.1-6
+
+- Add LuCI controls for enabling telemetry, log format and HTTPS destination,
+  CA trust, metric log copies and separate native OTLP metric export settings.
+- Validate URLs and certificate paths; preserve hidden metrics/interface settings
+  on legacy LuCI versions while disabled.
+- Document direct Graylog GELF HTTPS input with TLS; reverse proxies are optional.
+
 ## 0.3.1-5
 
 - Add checksum-pinned GitHub Actions builds of the native ARM64 capture component,

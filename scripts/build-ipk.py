@@ -8,7 +8,7 @@ import tarfile
 import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.1-5"
+VERSION = "0.3.1-6"
 ARCHITECTURE = "aarch64_cortex-a53"
 
 
