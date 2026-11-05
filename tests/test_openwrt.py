@@ -1,11 +1,24 @@
 """Keep the standalone upstream UI and native patch copies in sync."""
 from pathlib import Path
+import re
+import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class OpenWrtSourcesTests(unittest.TestCase):
+    @unittest.skipUnless((ROOT / '.git').exists(), 'Source-pin comparison requires a git checkout')
+    def test_pinned_backend_source_contains_the_tested_runtime(self):
+        recipe = (ROOT / 'openwrt/flint2-telemetry/Makefile').read_text()
+        commit = re.search(r'^FLINT2_SOURCE_VERSION:=([a-f0-9]{40})$', recipe, re.M).group(1)
+        result = subprocess.run(
+            ['git', 'diff', '--exit-code', commit, '--', 'LICENSE', 'package/files'],
+            cwd=ROOT, capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0,
+                         'Backend source pin differs from the tested runtime; update its commit/hash '
+                         'or fetch the pinned commit before running tests')
+
     def test_standalone_luci_sources_match_tested_ui(self):
         pairs = [
             ('www/luci-static/resources/view/flint2', 'htdocs/luci-static/resources/view/flint2'),
