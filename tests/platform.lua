@@ -10,6 +10,13 @@ assert(not platform.private_file(path), "group-readable file accepted")
 command("chmod 604 " .. quoted(path))
 assert(not platform.private_file(path), "other-readable file accepted")
 command("chmod 600 " .. quoted(path))
+local identity = assert(io.popen("id -u", "r"))
+local uid = identity:read("*l"); identity:close()
+if uid == "0" then
+    command("chown 1 " .. quoted(path))
+    assert(not platform.private_file(path), "file owned by another user accepted")
+    command("chown 0 " .. quoted(path))
+end
 command("ln -s " .. quoted(path) .. " " .. quoted(path .. ".link"))
 assert(not platform.private_file(path .. ".link"), "symlink accepted")
 assert(not platform.private_file("/tmp"), "directory accepted")

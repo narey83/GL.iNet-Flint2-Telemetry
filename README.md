@@ -69,6 +69,11 @@ it does not start telemetry or alter the vendor feeds. Follow the
 [feed setup, compatibility and trust guide](docs/FEED.md) before installing it.
 This is not an official OpenWrt feed or a package source for other firmware ABIs.
 
+The [0.4.0 current OpenWrt development candidate](docs/OPENWRT-CURRENT.md) has
+separate source recipes for the agent, capture component and LuCI app, with fw4
+support and snapshot SDK builds. Its APK artifacts are separate from this vendor
+21.02 IPK feed. See [submission preparation](docs/OPENWRT-SUBMISSION.md) for readiness.
+
 ## Download an IPK
 
 Get the generic IPK and `SHA256SUMS` from

@@ -1,3 +1,6 @@
+From d3f0badf5d75c1a406d655a0258f708a49d20044 Mon Sep 17 00:00:00 2001
+From: John Narey <john.narey@gmail.com>
+Date: Thu, 5 Nov 2026 23:51:41 +0000
 Subject: [PATCH] configure: omit host paths from the runtime build description
 
 The configure command embeds SDK staging/build paths in every capture binary.
@@ -8,10 +11,8 @@ Upstream-Status: Inappropriate [distribution build metadata]
 
 --- a/configure.ac
 +++ b/configure.ac
-@@ -1280,5 +1280,5 @@
- dnl final checks
+@@ -1281,3 +1281,3 @@ dnl final checks
  dnl trivial solution to portability issue
 -AC_DEFINE_UNQUOTED(COMPILE_ARGS, "$COMPILE_ARGS")
 +AC_DEFINE_UNQUOTED(COMPILE_ARGS, "OpenWrt source build")
  CFLAGS="${CFLAGS} ${INCLUDES}"
- INCLUDES=""

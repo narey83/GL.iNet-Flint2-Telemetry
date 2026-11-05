@@ -49,6 +49,21 @@ cp feeds.conf "$work/artifacts/"
 cp public-key.pem "$work/artifacts/"
 cp -R "$root/openwrt" "$work/artifacts/recipes"
 git -C "$root" rev-parse HEAD > "$work/artifacts/project-commit.txt"
+if [ "${FLINT2_TEST_UPGRADE:-0}" = 1 ]; then
+    # A packaging-only revision of the same backend tests conffile and service
+    # migration. Keep it outside the installable candidate set and feed assets.
+    mkdir "$work/artifacts/qualification-only"
+    sed -i 's/^PKG_RELEASE:=1$/PKG_RELEASE:=2/' package/flint2-telemetry/Makefile
+    make package/flint2-telemetry/compile V=s -j "${FLINT2_BUILD_JOBS:-2}"
+    find bin -type f -name 'flint2-telemetry-0.4.0-r2.apk' \
+        -exec cp '{}' "$work/artifacts/qualification-only/" \;
+    cp package/flint2-telemetry/Makefile "$work/artifacts/qualification-only/"
+    sed -i 's/^PKG_RELEASE:=2$/PKG_RELEASE:=1/' package/flint2-telemetry/Makefile
+fi
 cd "$work/artifacts"
-sha256sum ./*.apk public-key.pem > SHA256SUMS
+if [ -d qualification-only ]; then
+    sha256sum ./*.apk qualification-only/*.apk public-key.pem > SHA256SUMS
+else
+    sha256sum ./*.apk public-key.pem > SHA256SUMS
+fi
 printf 'Packages and build evidence: %s/artifacts\n' "$work"

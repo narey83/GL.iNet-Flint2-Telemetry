@@ -1,3 +1,6 @@
+From d3a81763f0fa37b1b1af50e74e2b09d79821ed6a Mon Sep 17 00:00:00 2001
+From: John Narey <john.narey@gmail.com>
+Date: Thu, 5 Nov 2026 22:22:03 +0000
 Subject: [PATCH] nfprobe: synchronize shared-memory ring publication
 
 The core published a plain readiness sequence before the record count, and the
@@ -7,9 +10,11 @@ Publish the complete slot with release ordering, acquire it before copying, and
 check for overwrite before consuming the snapshot. Preserve the existing ring
 layout, counters and timestamp values; do not synthesize replacement timestamps.
 
+Upstream-Status: Pending [not submitted upstream]
+
 --- a/src/plugin_hooks.c
 +++ b/src/plugin_hooks.c
-@@ -503,10 +503,13 @@
+@@ -503,10 +503,13 @@ reprocess:
  
  	/* let's commit the buffer we just finished writing */
  	((struct ch_buf_hdr *)channels_list[index].rg.ptr)->len = channels_list[index].bufptr;
@@ -26,7 +31,7 @@ layout, counters and timestamp values; do not synthesize replacement timestamps.
  
          if (config.debug_internal_msg) {
  	  struct plugins_list_entry *list = channels_list[index].plugin;
-@@ -540,7 +543,10 @@
+@@ -540,7 +543,10 @@ reprocess:
  	  channels_list[index].rg.ptr = channels_list[index].rg.base;
  
  	/* let's protect the buffer we are going to write */
@@ -38,7 +43,7 @@ layout, counters and timestamp values; do not synthesize replacement timestamps.
          ((struct ch_buf_hdr *)channels_list[index].rg.ptr)->num = 0;
  
          /* rewind pointer */
-@@ -844,8 +850,12 @@
+@@ -844,8 +850,12 @@ void fill_pipe_buffer()
      chptr->hdr.seq++;
      chptr->hdr.seq %= MAX_SEQNUM;
  
@@ -54,7 +59,7 @@ layout, counters and timestamp values; do not synthesize replacement timestamps.
  #ifdef WITH_ZMQ
 --- a/src/nfprobe_plugin/nfprobe_plugin.c
 +++ b/src/nfprobe_plugin/nfprobe_plugin.c
-@@ -1651,7 +1651,8 @@
+@@ -1651,7 +1651,8 @@ sort_version:
    
          if ((rg->ptr + bufsz) > rg->end) rg->ptr = rg->base;
    
@@ -64,7 +69,7 @@ layout, counters and timestamp values; do not synthesize replacement timestamps.
    	  if (!pollagain) {
    	    pollagain = TRUE;
    	    goto handle_flow_expiration;
-@@ -1665,13 +1666,24 @@
+@@ -1665,13 +1666,24 @@ sort_version:
                          config.name, config.type);
    	    }
  

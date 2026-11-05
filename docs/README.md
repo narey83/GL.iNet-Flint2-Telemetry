@@ -9,6 +9,7 @@ for the generic IPK, matching sources, checksums and optional Graylog imports.
 | --- | --- |
 | [Signed feed and LuCI updates](FEED.md) | One-time feed registration, public-key identity, compatible firmware and package updates |
 | [Official repository preparation](OPENWRT-SUBMISSION.md) | Maintainer, proposed package split, upstream requirements and outstanding compatibility tests |
+| [Current OpenWrt development builds](OPENWRT-CURRENT.md) | Separate source packages, fw4 behavior, APK artifacts and isolated qualification |
 | [Install and configure](../README.md#install-and-configure) | Firmware compatibility, IPK installation and GUI-first setup |
 | [Configuration](CONFIGURATION.md) | GUI controls, output combinations, UCI defaults, CA trust and authentication |
 | [Destinations](BACKENDS.md) | OTLP logs/metrics, ECS NDJSON and GELF; direct HTTPS or an optional proxy |

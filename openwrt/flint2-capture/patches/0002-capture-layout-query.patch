@@ -1,3 +1,6 @@
+From 34429a6dc277ce232736b979b023a278f0a6b8d4 Mon Sep 17 00:00:00 2001
+From: John Narey <john.narey@gmail.com>
+Date: Thu, 5 Nov 2026 23:38:57 +0000
 Subject: [PATCH] pmacctd: expose the compiled nfprobe record buffer size
 
 The service needs one complete metadata/extras record per shared-memory slot,
@@ -8,7 +11,7 @@ Upstream-Status: Inappropriate [Flint2 service integration]
 
 --- a/src/pmacctd.c
 +++ b/src/pmacctd.c
-@@ -285,6 +285,15 @@
+@@ -285,6 +285,15 @@ void pm_pcap_check(struct pm_pcap_device
  
  int main(int argc,char **argv, char **envp)
  {

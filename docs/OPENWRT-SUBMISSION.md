@@ -39,26 +39,28 @@ Current paths to split:
   replacement is available. Migration from its combined file ownership to the
   split packages needs an explicit upgrade test.
 
-## Readiness gaps
+## Implementation and qualification
 
-| Requirement | Current evidence | Work before submission |
+The 0.4.0 candidate is on the `openwrt-current` branch. See
+[current OpenWrt builds](OPENWRT-CURRENT.md) for build/install instructions and
+precise scope. The public vendor feed remains on its qualified release.
+
+| Area | Candidate implementation | Qualification |
 | --- | --- | --- |
-| Current development OpenWrt | Existing builds/runtime evidence target vendor 21.02, musl, Cortex-A53 | Build and run on current development OpenWrt; record exact SDK/build revision and device/image |
-| Native source build | `scripts/build-capture.sh` downloads a fixed 21.02 SDK; `package/Makefile` has an empty compile step | Use OpenWrt's selected cross toolchain, configure/package infrastructure and checksum-pinned sources; no SDK download inside the recipe |
-| Backend dependencies | Agent imports `nixio`; `luci-lib-nixio` belongs to the LuCI feed | Replace its signal/file-metadata uses with a supported core/packages dependency, preserving SIGTERM and credential-file ownership/permission checks |
-| Firewall backend | Helper hooks fw3/iptables chains, including `zone_wan_src_DROP` | Add and test fw4/nftables observation hooks and cleanup; never change accept/drop policy; preserve or explicitly scope legacy support |
-| Architecture scope | Capture ABI/buffer size and binary validation are qualified only for A53 | Derive/verify layout with the selected target or restrict support to the architectures actually tested; do not mark the native package `all` |
-| Clean installation | Private site installation and vendor-ABI tests exist | Test disabled public defaults, configure through LuCI, enable/restart/reload, remove and upgrade on the intended upstream image |
-| Patch submission | ARM64 ring fix exists in `vendor/patches/` | Review ownership and upstream status; prepare required mail header and genuine author sign-off, then refresh using OpenWrt quilt targets |
-| License declarations | MIT agent and bundled third-party notices exist | Confirm SPDX expressions and license files against each selected upstream release, including bundled libcdada; preserve all applicable notices |
-| CLI/CI safety | Agent has `--check-config`, but no `--version`/`--help` handling | Add side-effect-free informational flags or an appropriate upstream functional test; CI probes must not start collection |
-| Dependency/security review | Legacy source versions are pinned | Review maintained upstream versions, advisories and required dependency names against the selected current feed revisions |
+| Backend dependencies | `openwrt/flint2-telemetry/Makefile` uses core/packages dependencies, LuaPOSIX and a separate capture package | Platform checks and transport fixtures run on current OpenWrt without nixio; vendor nixio fallback tested separately |
+| Source builds | Capture builds with the selected SDK toolchain and OpenWrt libpcap; backend uses a full-commit/SHA-256 source pin | Local current x86-64 capture build passed; complete x86-64/Filogic matrix results recorded in `VALIDATION.md` |
+| Firewall | fw4 JSON transactions preserve the deny rules' matches; fw3 path retained for vendor builds | Real fw4 reload, cleanup, idempotency, constrained deny rules and failure cases passed in an isolated OpenWrt system |
+| Architecture | Native package restricted to 64-bit; service queries the compiled record layout | x86-64 query and live loopback flags/timestamps tested; Filogic hardware/offload behavior is not certified by a cross-build |
+| Package ownership | Backend, native capture and LuCI own separate paths | Installation/removal and ownership results recorded in `VALIDATION.md`; legacy combined-to-split migration is not supported across firmware ABIs |
+| CLI | Agent `--help`/`--version` run before modules/config; unknown options exit 2 | CI probes and explicit package version test avoid invoking firewall helpers |
+| Native patches | Refreshed through OpenWrt quilt targets; provenance headers and upstream status included | Human review and genuine DCO sign-offs still required; no sign-off has been created on your behalf |
+| Licenses | MIT backend/UI; capture retains pmacct and bundled libcdada notices, with system libpcap | Maintainer must review final source/license obligations before signing |
 
-Do not submit the existing `package/Makefile` as an official recipe: it installs
-an externally built asset and combines backend/UI files. Do not add an untested
-recipe with invented hashes or declare modern firmware support from legacy tests.
-This preparation deliberately records the gaps rather than presenting such a
-recipe as ready to merge.
+The source recipes are under `openwrt/`. The older `package/Makefile` and Python
+IPK builder remain the combined vendor-firmware build path; they are not the
+recipes to copy into the official repositories. SDK preparation workarounds are
+host tooling, not patches to an installed router or requirements imposed by the
+package recipes.
 
 ## Source baseline
 
@@ -81,34 +83,19 @@ privately rebuilding it. Any resulting native behavior/layout changes need fresh
 flow and timestamp tests. Publish a new immutable source release containing the
 port before pinning its archive and hash in the submission.
 
-## Qualification checklist
+## Review checklist
 
-Record results, commands, versions and limitations in `VALIDATION.md`; unchecked
-items below are required work, not test results.
-
-- [ ] Clean source download, prepare and compile through OpenWrt buildroot/SDK;
-  resolve all dependencies from core/packages for the backend.
-- [ ] Confirm source/license manifests and generated package metadata; no private
-  endpoints, headers, certificates, signing keys or binaries in the source archive.
-- [ ] Run the existing Python, Lua, LuCI and shell checks from
-  `.github/workflows/checks.yml` against the port, plus appropriate static checks.
-- [ ] Refresh native patches with `make package/flint2-capture/refresh` after
-  `make package/flint2-capture/{clean,prepare} QUILT=1` in the selected buildroot;
-  review any changed source/layout assumptions.
-- [ ] On current OpenWrt, verify signal handling, protected header-file checks,
-  TLS verification/failure behavior and exporter self-observations.
-- [ ] Verify OTLP logs/metrics, ECS NDJSON and GELF against compatible receivers;
-  include malformed configuration and destination outage cases.
-- [ ] Exercise WAN/LAN and configured VPN/interface capture, TCP flags and flow
-  timestamp handling using bounded fixtures/live traffic; document offload limits.
-- [ ] Verify fw4 hook reload/idempotency/removal, rate limits and unchanged packet
-  policy before/after installation, restart and package removal.
-- [ ] Test LuCI controls/ACLs, disabled clean install, config preservation during
-  upgrade, split-package ownership migration and removal with no orphan hooks.
-- [ ] Add upstream package tests appropriate to its current CI; test informational
-  CLI flags without accessing router hardware or sending telemetry.
-- [ ] Have the maintainer review the complete diff and source/license obligations;
-  then create genuine author/DCO sign-offs and human-reviewed submission text.
+- [ ] Read the final branch diff and `VALIDATION.md`, including build-workaround
+  evidence and the limits of container tests versus physical Filogic hardware.
+- [ ] Confirm source/version/hash pins, installed file ownership, licenses and
+  maintained dependency versions against the destination repositories.
+- [ ] Review the native publication patch and decide its upstream submission
+  route; review the two distribution integration patches.
+- [ ] Refresh patches with `make package/flint2-capture/prepare QUILT=1` and
+  `make package/flint2-capture/refresh` after any further native changes.
+- [ ] Add genuine author/DCO sign-offs after reviewing the source obligations.
+- [ ] Write/review the short upstream descriptions, disclosing AI assistance and
+  quoting only actual build/runtime results.
 
 ## Human submission handoff
 
