@@ -266,3 +266,37 @@ The existing site ingestion path was not migrated to a new Graylog TLS listener;
 the direct-input guide is based on the server's exposed options and official docs,
 not a claim of a new end-to-end Graylog direct-TLS deployment. Client-certificate
 (mTLS-required) inputs are not supported by the current exporter.
+
+
+## Signed community feed and dashboard capability overview
+
+GitHub Pages serves a target-specific opkg feed for GL-MT6000 vendor OpenWrt 21.02,
+musl, fw3 and aarch64_cortex-a53. A separate feed setup IPK includes only its own
+feed configuration, public usign key and license. Its pre-install guard passed on
+the running supported router and refused an unverified offline target. Package
+payload comparison confirmed the hosted setup's files match the expected contents.
+The compressed setup IPK hash differs between local Python/macOS and GitHub/Linux
+builds; the deployment's own checksum is authoritative, while the pinned public-key
+fingerprint and SHA-256 remain identical. The guide no longer pins an assumed
+cross-platform bootstrap archive hash.
+
+The published Packages index was signed in GitHub using the Actions signing secret,
+verified before deployment and checked by Flint2's native usign. Deliberate metadata
+tampering was rejected. The first isolated opkg attempt still scanned the default
+vendor config directory, so the temporary project-only trust store rejected those
+unrelated vendor signatures; its incomplete status fixture also failed dependency
+resolution. A corrected test set OPKG_CONF_DIR to an empty temporary directory,
+used temporary key/list directories and cloned installed package metadata into a
+temporary destination. It then passed HTTPS opkg update with signature checking,
+listed both correctly labelled packages, showed the simulated telemetry upgrade
+0.3.1-5 → 0.3.1-6, and passed a no-action setup-package install/dependency check.
+Production feed definitions and the trusted-key directory remained unchanged.
+
+Twenty-six Python tests passed with native usign enabled, including signature
+acceptance/tampering, legacy index padding, checksum/ABI/profile/source rejection,
+public-only bootstrap contents and dashboard counts/HTML rendering. Python
+compilation, Node LuCI checks, ShellCheck, workflow YAML parsing and public-key
+privacy/link checks passed. The live Pages deployment and source CI completed
+successfully. The page's ten dashboard descriptions were checked against the
+actual content pack (183 widgets), with optional enrichment and observation limits
+stated explicitly. No synthetic events were ingested for this feed work.

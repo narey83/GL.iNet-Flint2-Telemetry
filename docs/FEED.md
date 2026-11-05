@@ -45,8 +45,11 @@ The public key is tracked in
 ```text
 usign fingerprint: 85cd62be71053c3e
 public-key SHA-256: 20e32ff6c0e948438e56c320efd29393778f00102f7b1a2028401cb0e7d800a5
-setup-IPK SHA-256: 4a02b0932dffca9134724facf86ea31b4c404b914629e3a1708448c98c1815ff
 ```
+
+The setup IPK’s matching `.sha256` file is published with each feed deployment.
+Its compressed archive bytes can differ between build-tool versions; the public
+key identity above remains the trust anchor.
 
 Private signing material is not in the repository, Pages output or setup IPK.
 The feed publisher signs the uncompressed `Packages` file with OpenWrt's usign;
