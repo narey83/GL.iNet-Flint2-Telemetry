@@ -11,7 +11,7 @@ trust. No site addresses, credentials or private trust certificates are bundled.
 
 | Signal | Public data contract | Export |
 | --- | --- | --- |
-| Logs and flow observations | ECS 8.17 fields with documented `flint2.*` extensions | OTLP/HTTP JSON logs, ECS NDJSON over HTTPS, or GELF HTTP |
+| Logs and flow observations | ECS 8.17 fields with documented `flint2.*` extensions | OTLP/HTTP JSON logs, ECS NDJSON over HTTPS, or GELF over HTTPS |
 | Native metrics | OpenTelemetry system semantic conventions 1.45.0 where applicable; `flint2.*` for router-specific measurements | OTLP/HTTP JSON metrics |
 | Optional metric event copies | Names, values, units, attributes, temporality and counter starts under `flint2.*` | Same log output |
 
@@ -22,14 +22,15 @@ transport; the canonical event schema stays ECS. Native metrics need a separate
 metrics-capable endpoint. No traces are produced. The documented ECS subset and
 transport support do not imply compatibility with every logging platform.
 
-See [the event contract](docs/SCHEMA.md), [configuration](docs/CONFIGURATION.md) and
+Start with the [documentation index](docs/README.md). See [the event contract](docs/SCHEMA.md), [configuration](docs/CONFIGURATION.md) and
 [backend adapters](docs/BACKENDS.md). ECS and OTel semantic conventions are separate
 standards: ECS describes the event body; OTLP carries that body and typed attributes.
 
 ## Graylog setup and dashboard imports
 
 The optional [Graylog setup guide](docs/integrations/GRAYLOG.md) covers a dedicated
-GELF input, HTTPS, router configuration and native content-pack installation.
+GELF input with native TLS, GUI configuration and native content-pack installation.
+**Caddy is optional:** direct Graylog HTTPS inputs work without a reverse proxy.
 [Download 10 dashboards with 183 widgets](integrations/graylog/) adapted from a
 working installation. The [catalogue](docs/integrations/GRAYLOG-DASHBOARDS.md)
 explains optional GeoIP/ASN/intelligence enrichments and the portable field mapping.
@@ -79,13 +80,35 @@ and comply with the bundled GPL notices. Do not publish only the `.ipk`.
 
 ## Install and configure
 
+Download the IPK for your compatible firmware from [the latest release](https://github.com/narey83/GL.iNet-Flint2-Telemetry/releases/latest).
+Verify its checksum, copy it to the router and install:
+
 ```sh
 opkg install ./flint2-telemetry_0.3.1-6_aarch64_cortex-a53.ipk
+```
+
+With LuCI installed, open **Services → Flint2 Telemetry**, choose your log format,
+enter your HTTPS endpoint and CA certificate path, and choose the metric outputs.
+Enable telemetry after configuring your receiver, then click **Save & Apply**.
+The form validates its fields and reloads the service; the service checks the
+configuration before starting. No terminal commands are needed for these GUI settings.
+
+Use the [configuration guide](docs/CONFIGURATION.md#choose-your-outputs) to choose
+between log-only delivery, metric log copies and separate native OTLP metrics.
+For a direct Graylog input, follow the [Graylog setup guide](docs/integrations/GRAYLOG.md).
+Advanced authentication header files and queue settings use UCI.
+
+For headless systems, this example configures separate OTLP logs and metrics:
+
+```sh
+uci set flint2.main.format='otlp_http_json'
+uci set flint2.main.metrics_enabled='1'
 uci set flint2.main.endpoint='https://collector.example.invalid/v1/logs'
 uci set flint2.main.metrics_endpoint='https://collector.example.invalid/v1/metrics'
 # Replace both example URLs with real HTTPS destinations before enabling.
 uci set flint2.main.enabled='1'
 uci commit flint2
+lua /usr/sbin/flint2-agent --check-config
 /etc/init.d/flint2 restart
 ```
 
@@ -107,9 +130,19 @@ across firmware upgrades; manage their backup separately.
 ## Router web settings
 
 When LuCI is installed, open **Services → Flint2 Telemetry**. The page explains
-collection capabilities, standards/destinations and limitations, shows the current
-log destination, and lets you select statistics, WAN, local flow and VPN event
-devices. Existing devices are listed; custom names retain devices that are currently
+collection capabilities, standards/destinations and limitations. Its controls include:
+
+- Enable telemetry and select OTLP logs, ECS NDJSON or GELF.
+- Set the log HTTPS endpoint and trusted CA certificate file.
+- Send metric point copies as log events, with or without native metrics export.
+- Enable native OTLP metrics and set their separate endpoint and optional CA override.
+- Select statistics, WAN, local flow and VPN event devices.
+
+Direct HTTPS inputs are supported; no Caddy or other proxy is required. TLS
+verification remains enabled. Hidden metrics/interface settings are retained when
+their switch is off, including on older LuCI releases.
+
+Existing devices are listed; custom names retain devices that are currently
 absent. Save & Apply reloads telemetry using the normal OpenWrt configuration path.
 The page can write only the Flint2 UCI configuration, not network/firewall settings.
 LuCI is optional: the agent remains usable through UCI on headless OpenWrt systems.
@@ -177,7 +210,10 @@ LUA_PATH='./package/files/usr/lib/lua/?.lua;;' lua tests/standards.lua
 Lua tests need Lua 5.1 and cjson. Delivery integration tests additionally require an
 OpenWrt test environment; they use isolated UCI/runtime directories and a fake curl.
 See [validation evidence](VALIDATION.md) for what was actually exercised.
-CI checks source/package fixtures; it does not certify live router behavior.
+Source CI checks contracts and package fixtures. The release workflow additionally
+compiles the native ARM64 capture component and packages it from the tagged source.
+Neither workflow certifies live router behavior; qualification is recorded in each
+[release](https://github.com/narey83/GL.iNet-Flint2-Telemetry/releases).
 With the agent running and WAN capture configured, `lua tests/capture-live.lua`
 checks actual TCP flag preservation using an isolated loopback handshake/receiver.
 `lua tests/capture-timestamps.lua` checks recent flow timestamps with 128 bounded

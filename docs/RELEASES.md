@@ -11,6 +11,29 @@ The target is **GL-MT6000 vendor OpenWrt 21.02, musl, aarch64_cortex-a53,
 fw3/iptables**. This package is not a universal OpenWrt IPK. Other firmware ABIs,
 CPU architectures, fw4/nftables and IPv6 flow capture require separate qualification.
 
+## Download a published release
+
+[Release 0.3.1-6](https://github.com/narey83/GL.iNet-Flint2-Telemetry/releases/tag/v0.3.1-6)
+includes the GUI export controls and direct-HTTPS setup guide. Its assets include
+`flint2-telemetry_0.3.1-6_aarch64_cortex-a53.ipk` and the matching
+`flint2-telemetry_0.3.1-6-sources.tar.gz`, plus checksums and Graylog imports.
+Use the [latest release](https://github.com/narey83/GL.iNet-Flint2-Telemetry/releases/latest)
+for future updates and read its compatibility/qualification notes.
+
+For package-only verification, download the IPK and its matching `.ipk.sha256`
+file into the same directory, then run:
+
+```sh
+sha256sum -c flint2-telemetry_0.3.1-6_aarch64_cortex-a53.ipk.sha256
+# macOS alternative:
+shasum -a 256 -c flint2-telemetry_0.3.1-6_aarch64_cortex-a53.ipk.sha256
+```
+
+To verify `SHA256SUMS`, download all assets named in it; otherwise the command also
+reports missing files. Release notes distinguish checks performed in GitHub from
+manual router qualification. A private-site profile is never part of the public
+IPK: configure your own endpoints and trust before enabling it.
+
 ## Run a build
 
 1. Open **Actions → Build OpenWrt IPK → Run workflow** and select the branch/ref.
