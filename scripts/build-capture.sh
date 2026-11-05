@@ -18,6 +18,10 @@ fetch libpcap-1.11.0.tar.gz 596389bc8560ea027dff9db8aaf6c173d992366d9aef4baf5d7c
 # Refuse reuse of partially configured source trees.
 [ ! -e "$work" ] || { echo "Remove the previous build directory before rebuilding: $work" >&2; exit 1; }
 mkdir "$work"
+# Upstream's tarball make rules probe git and otherwise discover our enclosing
+# checkout, incorrectly trying to initialize a submodule in the Flint2 repository.
+# Keep discovery inside the extracted build tree; use the bundled libcdada sources.
+export GIT_CEILING_DIRECTORIES="$work"
 tar -xJf "$cache/sdk.tar.xz" -C "$work"
 tar -xzf "$cache/pmacct-1.7.9.tar.gz" -C "$work"
 tar -xzf "$cache/libpcap-1.11.0.tar.gz" -C "$work"

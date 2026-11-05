@@ -42,7 +42,7 @@ across hosts, nor is an unsigned checksum file a signing or provenance attestati
 1. Update `VERSION` in `scripts/build-ipk.py`, and `PKG_VERSION`/`PKG_RELEASE` in
    `package/Makefile`. Update installation examples and the changelog. The workflow
    rejects disagreement or a tag not equal to `v` plus the package version.
-2. Commit and push. Create a tag such as `v0.3.1-4` pointing at that exact commit,
+2. Commit and push. Create a tag such as `v0.3.1-5` pointing at that exact commit,
    then push the tag. The tag workflow creates a draft release only after checks
    and the fresh native build pass.
 3. Download the draft assets, verify checksums and inspect `BUILD-INFO.json`.

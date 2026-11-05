@@ -54,8 +54,8 @@ The current native capture asset targets `aarch64_cortex-a53`, OpenWrt 21.02 mus
 Only the GL-MT6000 vendor firmware with fw3/iptables has been exercised. Other
 firmware ABIs, fw4/nftables and other CPU architectures are not qualified.
 
-On a Linux x86_64 host with Python 3, curl, make, patch, a C build toolchain, tar, xz and
-sha256sum:
+On a Linux x86_64 host with Python 3, curl, make, patch, autoconf, automake, libtool, bison, flex,
+a C/C++ build toolchain, tar, xz and sha256sum:
 
 ```sh
 ./scripts/build-capture.sh
@@ -69,7 +69,7 @@ build requires removing its `work/` subdirectory. The script does not install ho
 packages. The `.ipk` builder is deterministic for identical inputs; identical
 native binaries across different hosts are not promised.
 
-The result is `dist/flint2-telemetry_0.3.1-4_aarch64_cortex-a53.ipk` plus SHA-256.
+The result is `dist/flint2-telemetry_0.3.1-5_aarch64_cortex-a53.ipk` plus SHA-256.
 Run `python3 scripts/bundle-sources.py` after validation to produce its matching
 source archive, including the checksum-verified upstream source tarballs.
 Lua modules are MIT licensed. The bundled pmacct capture component and libraries
@@ -80,7 +80,7 @@ and comply with the bundled GPL notices. Do not publish only the `.ipk`.
 ## Install and configure
 
 ```sh
-opkg install ./flint2-telemetry_0.3.1-4_aarch64_cortex-a53.ipk
+opkg install ./flint2-telemetry_0.3.1-5_aarch64_cortex-a53.ipk
 uci set flint2.main.endpoint='https://collector.example.invalid/v1/logs'
 uci set flint2.main.metrics_endpoint='https://collector.example.invalid/v1/metrics'
 # Replace both example URLs with real HTTPS destinations before enabling.

@@ -17,7 +17,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install build and check tools
-        run: sudo apt-get update && sudo apt-get install -y build-essential curl patch python3 xz-utils bison flex libtool pkg-config zlib1g-dev libncurses-dev libssl-dev file binutils lua5.1 lua-cjson shellcheck
+        run: sudo apt-get update && sudo apt-get install -y build-essential curl patch python3 xz-utils bison flex autoconf automake libtool pkg-config zlib1g-dev libncurses-dev libssl-dev file binutils lua5.1 lua-cjson shellcheck
       - name: Validate release version
         env:
           RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}

@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=flint2-telemetry
 PKG_VERSION:=0.3.1
-PKG_RELEASE:=4
+PKG_RELEASE:=5
 PKG_LICENSE:=MIT GPL-2.0-only BSD-3-Clause ISC
 PKGARCH:=aarch64_cortex-a53
 
