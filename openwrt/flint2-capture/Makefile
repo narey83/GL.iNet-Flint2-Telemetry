@@ -45,4 +45,12 @@ define Package/flint2-capture/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/src/external_libs/libcdada/LICENSE $(1)/usr/share/licenses/flint2-capture/libcdada-LICENSE
 endef
 
+define Package/flint2-capture/postinst
+#!/bin/sh
+[ -n "$$IPKG_INSTROOT" ] && exit 0
+if [ -x /etc/init.d/flint2 ] && /etc/init.d/flint2 running; then
+	/etc/init.d/flint2 restart
+fi
+endef
+
 $(eval $(call BuildPackage,flint2-capture))

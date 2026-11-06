@@ -57,4 +57,15 @@ uci -q delete firewall.flint2_events || true
 uci commit firewall
 endef
 
+# APK upgrades otherwise call procd "start" with the same command/config, which
+# may retain an already-running Lua process with the previous modules loaded.
+# Preserve enablement; the standard post-upgrade hook starts enabled services.
+define Package/flint2-telemetry/preinst
+#!/bin/sh
+[ -n "$$IPKG_INSTROOT" ] && exit 0
+if [ "$$PKG_UPGRADE" = 1 ] && [ -x /etc/init.d/flint2 ]; then
+	/etc/init.d/flint2 stop
+fi
+endef
+
 $(eval $(call BuildPackage,flint2-telemetry))
