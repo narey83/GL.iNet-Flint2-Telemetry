@@ -185,6 +185,12 @@ managed-dashboard workflow; do not run them expecting to update these imported
 copies. `connect-existing-dashboards.py` is only for a pre-existing legacy site,
 not a clean-install prerequisite.
 
+The alternative provisioner creates a plain GELF input bound to `127.0.0.1` by
+default for a local HTTPS proxy. If Graylog and the proxy use a private container
+network, set `GRAYLOG_INPUT_BIND_ADDRESS` to that network's listen address and
+restrict access at the host/network boundary. For direct router-to-Graylog
+ingestion, create a TLS-enabled input as described above instead.
+
 ## 5. Verify and troubleshoot
 
 In the new stream, search these examples:

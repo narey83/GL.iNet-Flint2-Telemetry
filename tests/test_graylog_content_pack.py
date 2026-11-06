@@ -1,9 +1,9 @@
 """Check the public artifact's references, scoping and portable data contract."""
 import hashlib
 import json
-from pathlib import Path
 import re
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACK = ROOT / 'integrations/graylog/flint2-dashboards.json'

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Create/update only the dedicated Flint2 input, stream, search and dashboard.
 
 API token is read from stdin, never stored. Run with --apply to write to Graylog.
@@ -10,12 +9,12 @@ except ModuleNotFoundError:
 import argparse
 import base64
 import json
-from pathlib import Path
+import os
 import subprocess
 import sys
-import uuid
-import os
 import urllib.parse
+import uuid
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TITLE = "Flint2 Telemetry"
@@ -43,7 +42,8 @@ class Graylog:
         if not self.ca_file.is_absolute():self.ca_file=ROOT/self.ca_file
 
     def request(self, method, path, body=None):
-        assert path.startswith("/") and not any(c in path for c in '\n\r"')
+        if not path.startswith("/") or any(c in path for c in '\n\r"'):
+            raise ValueError("Invalid Graylog API path")
         config = ('url = '+json.dumps(self.base_url+'/api'+path)+'\n'
                   f'header = "Authorization: Basic {self.auth}"\n'
                   'header = "X-Requested-By: flint2-provisioner"\n'
@@ -55,7 +55,7 @@ class Graylog:
         if body is not None:
             # curl config accepts JSON-escaped strings, keeping the token off argv.
             config += "data = " + json.dumps(json.dumps(body)) + "\n"
-        result = subprocess.run(command, input=config, text=True, capture_output=True)
+        result = subprocess.run(command, check=False, input=config, text=True, capture_output=True)
         if result.returncode:
             raise RuntimeError(f"{method} {path}: {result.stderr} {result.stdout[:1500]}")
         return json.loads(result.stdout) if result.stdout.strip() else {}
@@ -196,12 +196,14 @@ def provision(api):
     matching = [item for item in inputs if item["title"] == TITLE]
     if matching:
         item = matching[0]
-        assert item["type"] == "org.graylog2.inputs.gelf.http.GELFHttpInput" and item["attributes"]["port"] == 12201
+        if item["type"] != "org.graylog2.inputs.gelf.http.GELFHttpInput" or item["attributes"]["port"] != 12201:
+            raise ValueError("Existing Flint2 input has an unexpected type or port")
         input_id = item["id"]
     else:
         input_id = api.request("POST", "/system/inputs", {"title": TITLE,
             "type": "org.graylog2.inputs.gelf.http.GELFHttpInput", "global": True,
-            "configuration": {"bind_address": "0.0.0.0", "port": 12201, "recv_buffer_size": 1048576,
+            "configuration": {"bind_address": os.environ.get("GRAYLOG_INPUT_BIND_ADDRESS", "127.0.0.1"),
+                "port": 12201, "recv_buffer_size": 1048576,
                 "number_worker_threads": 2, "tls_enable": False, "enable_bulk_receiving": True,
                 "enable_cors": False, "max_chunk_size": 262144, "idle_writer_timeout": 60}})["id"]
     streams = api.request("GET", "/streams")["streams"]

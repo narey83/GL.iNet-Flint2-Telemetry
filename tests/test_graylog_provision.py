@@ -1,7 +1,7 @@
 import importlib.util
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +15,8 @@ class FakeGraylog:
 
     def __init__(self):
         self.stream_body = None
+        self.input_body = None
+        self.existing_inputs = []
         self.index_lookup = False
         self.rule_body = None
         self.pipeline_body = None
@@ -26,7 +28,7 @@ class FakeGraylog:
     def request(self, method, path, body=None):
         if method == 'GET':
             if path == '/system/inputs':
-                return {'inputs': []}
+                return {'inputs': self.existing_inputs}
             if path == '/streams':
                 return {'streams': []}
             if path == '/system/indices/index_sets':
@@ -44,6 +46,7 @@ class FakeGraylog:
             self.stream_body = body
             return {'stream_id': 'stream'}
         if path == '/system/inputs':
+            self.input_body = body
             return {'id': 'input'}
         if path == '/views/search':
             return {'id': 'search'}
@@ -65,6 +68,21 @@ class FakeGraylog:
 
 
 class ProvisionTests(unittest.TestCase):
+    def test_api_path_validation_is_not_an_assertion(self):
+        api = module.Graylog('dummy', base_url='https://graylog.example.invalid')
+        for path in ['relative', '/bad\nheader', '/bad"quote']:
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                api.request('GET', path)
+
+    def test_mismatched_existing_input_fails(self):
+        api = FakeGraylog()
+        api.existing_inputs = [{'id': 'wrong', 'title': module.TITLE,
+                                'type': 'wrong', 'attributes': {'port': 12201}}]
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.object(module, 'ROOT', Path(directory)),
+              self.assertRaisesRegex(ValueError, 'unexpected type or port')):
+            module.provision(api)
+
     def test_existing_routing_pipeline_is_not_duplicated(self):
         api = FakeGraylog()
         api.existing_pipelines = [{'id': 'routing', 'title': 'Routing',
@@ -83,6 +101,7 @@ class ProvisionTests(unittest.TestCase):
                 with patch.object(module, 'ROOT', Path(directory)), patch.dict(module.os.environ, env, clear=True):
                     module.provision(api)
                 self.assertEqual(api.stream_body['index_set_id'], configured or 'default-index')
+                self.assertEqual(api.input_body['configuration']['bind_address'], '127.0.0.1')
                 self.assertEqual(api.index_lookup, configured is None)
                 self.assertTrue((Path(directory) / 'dist/graylog-resources.json').is_file())
                 self.assertIn('/ 1000000.0', api.rule_body['source'])
