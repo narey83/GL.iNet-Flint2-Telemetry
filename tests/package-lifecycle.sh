@@ -70,6 +70,7 @@ install)
     apk add "$ui"
     apk info --who-owns /www/luci-static/resources/view/flint2/interfaces.js | grep -q luci-app-flint2-telemetry
     apk info --who-owns /usr/sbin/flint2-agent | grep -q flint2-telemetry
+    cmp /usr/share/licenses/flint2-telemetry/LICENSE /usr/share/licenses/luci-app-flint2-telemetry/LICENSE
     echo 'PASS: signed clean install, disabled defaults, headless backend, service/reload, upgrade and config preservation'
     echo 'Reboot this disposable test system, then run this script with remove.'
     ;;

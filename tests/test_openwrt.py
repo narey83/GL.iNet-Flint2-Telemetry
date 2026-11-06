@@ -8,6 +8,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class OpenWrtSourcesTests(unittest.TestCase):
+    def test_standalone_luci_preserves_the_mit_notice(self):
+        notice = ROOT / 'openwrt/luci-app-flint2-telemetry/root/usr/share/licenses/luci-app-flint2-telemetry/LICENSE'
+        self.assertEqual((ROOT / 'LICENSE').read_bytes(), notice.read_bytes())
+
     @unittest.skipUnless((ROOT / '.git').exists(), 'Source-pin comparison requires a git checkout')
     def test_pinned_backend_source_contains_the_tested_runtime(self):
         recipe = (ROOT / 'openwrt/flint2-telemetry/Makefile').read_text()
