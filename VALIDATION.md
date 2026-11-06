@@ -325,8 +325,8 @@ tested userland/ruleset behavior; they do not certify the OpenWrt kernel or
 physical Filogic hardware/offload behavior. The home router was not flashed.
 
 The backend recipe pins runtime commit
-`83ce2c0d3f45f66dfa3f3fb47b0423abdf1c113a`, archive SHA-256
-`42c8cc83dd638a8c273e371eb6f189d307c4dafa45627a34a0cffc192afd50af`.
+`853002997d73ca820703b09c8a590a285651e59f`, archive SHA-256
+`6b026094d455f5fb72be81ca479e52fb0f07be62d775a3debcc5f973a70c9206`.
 A project test compares the pinned runtime tree against the code being tested.
 Standalone LuCI assets and shared native patches are also compared to the
 corresponding tested project sources.
@@ -368,6 +368,11 @@ and rejects configuration errors before compilation.
   input left the old ruleset intact. Unit cases reject unsupported verdicts,
   stateful/random matches and nonstandard rejection handlers before outputting a
   transaction. Empty WAN deny chains do not generate denial observations.
+- Snapshot and batch files use a root-owned mode-0700 temporary directory. A
+  wrapper inspected the real snapshot redirection's parent permissions before
+  delegating to nft. A barrier forced two helpers to read the same initial
+  ruleset: exclusive chain creation let one transaction succeed, the conflicting
+  transaction failed atomically, and exactly one owned forward jump remained.
 - The local source-built capture APK installed with signature verification. It
   linked OpenWrt libpcap 1.10.7, libstdc++, libgcc and musl, and reported a
   264-byte compiled buffer layout. A bounded loopback TCP handshake produced two
