@@ -1,5 +1,17 @@
 # Changes
 
+## 0.4.0 development candidate
+
+- Add fw4/nftables observation hooks with atomic replacement, preserved deny
+  matches and explicit rejection of unsupported stateful expressions.
+- Separate current OpenWrt source recipes for the Lua backend, native capture
+  component and optional LuCI app. Use system libpcap and packages-feed LuaPOSIX.
+- Derive the capture buffer size from the compiled target layout; add safe
+  informational CLI flags and reject unknown agent options.
+- Add snapshot SDK builds for x86-64 and MediaTek/Filogic, immutable source/hash
+  pins, signed APK artifacts and upgrade qualification packages.
+- Keep the existing vendor 21.02 signed feed on its qualified 0.3.1-6 release.
+
 ## 0.3.1-6
 
 - Add LuCI controls for enabling telemetry, log format and HTTPS destination,

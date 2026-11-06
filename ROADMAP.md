@@ -22,13 +22,14 @@
 ## Planned work
 
 - Official OpenWrt inclusion: [submission preparation](docs/OPENWRT-SUBMISSION.md)
-  records the maintainer and package split. Current-master source builds,
-  fw4 support, dependency cleanup and runtime qualification remain prerequisites;
-  no upstream pull request has been submitted.
+  records the maintainer and package split. The 0.4.0 candidate implements fw4
+  support, dependency cleanup and current SDK source builds; qualification results
+  are recorded in `VALIDATION.md`. Human review/sign-off remains required and no
+  upstream pull request has been submitted.
 - Release qualification: measure router overhead and hardware-offload visibility,
   review dependency advisories and expand the tested firmware/version matrix.
   Existing live checks do not establish lossless accounting or a throughput benchmark.
-- Portability: fw4/nftables support, IPv6 flow capture, other firmware/CPU ABIs and
+- Portability: expand fw4/hardware qualification, IPv6 flow capture, other firmware/CPU ABIs and
   additional clean-install backend examples. Keep backend-specific projections
   outside the agent's canonical contract.
 - Operations: optional bounded persistent buffering and managed

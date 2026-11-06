@@ -10,7 +10,7 @@ local function rule(name, expressions, comment, handle)
     return value
 end
 chain("forward"); chain("drop_from_wan"); chain("reject_from_wan"); chain("handle_reject")
-rule("handle_reject", {{reject=json.null}})
+local handler = rule("handle_reject", {{reject=json.null}})
 local filter = {match={op="==", left={payload={protocol="ip", field="saddr"}},
     right={prefix={addr="198.51.100.0", len=24}}}}
 local denial = rule("drop_from_wan", {filter, {counter={packets=5, bytes=500}}, {drop=json.null}})
@@ -41,6 +41,9 @@ local deterministic = denial.expr
 denial.expr={{match={op="==", left={numgen={mode="random", mod=2}}, right=0}}, {drop=json.null}}
 assert(not pcall(nft.build, snapshot, true, "eth0", {}), "random match duplicated")
 denial.expr=deterministic
+handler.expr={{accept=json.null}}
+assert(not pcall(nft.build, snapshot, true, "eth0", {}), "non-rejecting handler accepted")
+handler.expr={{reject=json.null}}
 chain("flint2_evt_fwd")
 rule("forward", {{jump={target="flint2_evt_fwd"}}}, "!flint2", 123)
 rule("forward", {{jump={target="unrelated"}}}, "!flint2", 456)

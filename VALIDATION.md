@@ -300,3 +300,97 @@ privacy/link checks passed. The live Pages deployment and source CI completed
 successfully. The page's ten dashboard descriptions were checked against the
 actual content pack (183 widgets), with optional enrichment and observation limits
 stated explicitly. No synthetic events were ingested for this feed work.
+
+## Current OpenWrt candidate — 2026-11-05/06
+
+The 0.4.0 candidate has standalone backend/capture/LuCI source recipes under
+`openwrt/`. Production `home-router` remained on the installed 0.3.1-6 package;
+its configuration, exporter destination, firewall and VPN service were not
+changed for this qualification. No QEMU VM was started.
+
+### Environment and source integrity
+
+The local source-build check used the current x86-64 GCC 14.4.0/musl SDK,
+SHA-256 `c069f53be630a3c57643249d7e7ae4a6208b5bac6e5249acbbd3fa767331b8ee`.
+Its base revision was `a4076a8021f277da9b018ed81cbf5afde25d7d4f`; the corresponding
+packages and LuCI feed revisions were `5a350e9adf2e5c411205597f9092a8069bd04580`
+and `59b4e336d732f493f51e77563ae4f73251983b8f`. The runtime fixture used the official
+x86-64 rootfs (`r38137-a4076a8021`), verified against SHA-256
+`c176c4630f3d883858db426f1ef32bd14f000a5125df68675afae66274e81c12`.
+
+The runtime fixture is a Docker container with its own network namespace and
+NET_ADMIN/NET_RAW capabilities, no published ports, and OpenWrt procd, ubus,
+netifd, fw4 and apk. It shares Ubuntu's host kernel. These results qualify the
+tested userland/ruleset behavior; they do not certify the OpenWrt kernel or
+physical Filogic hardware/offload behavior. The home router was not flashed.
+
+The backend recipe pins runtime commit
+`83ce2c0d3f45f66dfa3f3fb47b0423abdf1c113a`, archive SHA-256
+`42c8cc83dd638a8c273e371eb6f189d307c4dafa45627a34a0cffc192afd50af`.
+A project test compares the pinned runtime tree against the code being tested.
+Standalone LuCI assets and shared native patches are also compared to the
+corresponding tested project sources.
+
+The first SDK checksum supplied by a cached web index differed from the live
+download. The live official manifest verified the downloaded SDK before it was
+used for compilation. The automated builder verifies before extraction and pins
+the snapshot's feeds. No prerequisite or quality check was forced off. Local
+host development headers were unpacked into the temporary build workspace;
+the separate local ARM attempt stopped at a missing ncurses prerequisite and
+was not counted as a successful ARM build.
+
+SDK preparation relocates absolute libtool metadata paths. The first native link
+failed on the SDK builder's old `libstdc++.la` path; regeneration plus relocation
+resolved that failure. A separate metadata-generator workaround removes only a
+tautological conditional dependency (`!(A && B) || B`), preserving all actual
+constraints. Its idempotency, unknown-generator failure and relocation scope are
+covered by tests. Installing every unrelated feed package initially exposed
+other Kconfig cycles, so qualification installs the required dependency closure
+and rejects configuration errors before compilation.
+
+### Runtime checks performed
+
+- Lua core (43 checks), native metrics (53), source decoder, standards, platform
+  and nft expression tests passed on the OpenWrt userland. Source checks also
+  run these contracts in GitHub Actions.
+- The POSIX platform adapter passed regular-file, mode, wrong-owner, symlink,
+  directory, missing-file and signal-reset checks. The same file/signal tests
+  passed through the nixio fallback using temporary files on the vendor router.
+- The three transport fixtures passed: retry/redirect queue retention and
+  recovery; independent native metric delivery/partial success/permanent
+  rejection; OTLP log permanent rejection versus retryable 503. They use fake
+  curl responses and isolated UCI/runtime directories. No fixture was sent to
+  the production receiver. Normal SIGTERM shutdown completed without timeout's
+  SIGKILL fallback.
+- The real fw4/nft test passed start/restart idempotency, a single owned forward
+  jump, source-prefix preservation in denial observations, reload restoration,
+  disabled cleanup and exact stateless ruleset restoration. Invalid interface
+  input left the old ruleset intact. Unit cases reject unsupported verdicts,
+  stateful/random matches and nonstandard rejection handlers before outputting a
+  transaction. Empty WAN deny chains do not generate denial observations.
+- The local source-built capture APK installed with signature verification. It
+  linked OpenWrt libpcap 1.10.7, libstdc++, libgcc and musl, and reported a
+  264-byte compiled buffer layout. A bounded loopback TCP handshake produced two
+  flow records with TCP/SYN flags and accepted timestamps. The initial replay
+  fixture omitted receiver/timeout fields and produced no records; using the
+  complete service configuration corrected that fixture. This first binary
+  predates the build-description-only path sanitization patch.
+- Native patches were refreshed using OpenWrt's `prepare QUILT=1` and `refresh`
+  targets. Provenance headers and upstream status are included; human DCO
+  sign-offs remain intentionally absent pending maintainer review.
+- Thirty-five Python tests, Node LuCI checks, Python compilation, ShellCheck and
+  `git diff --check` passed. The two Lua CLI tests are unavailable on the Mac's
+  local Python run, but run with Lua installed in the successful source CI.
+
+The complete SDK builds initially compiled the backend and capture on both
+targets, then failed because the LuCI application lacked the buildroot discovery
+signature. The corrected recipe was verified through an SDK metadata dump,
+including version, dependencies and maintainer; the builder now checks selection
+of all three packages before compiling. Full matrix and generated-package
+lifecycle results are recorded separately when completed.
+
+Published security advisory pages for
+[LuaPOSIX](https://github.com/luaposix/luaposix/security/advisories) and
+[pmacct](https://github.com/pmacct/pmacct/security/advisories) were checked; neither
+listed a published advisory at that time. This is limited advisory evidence,
+not an exhaustive vulnerability audit. The NVD API lookup was unavailable.
