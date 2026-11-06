@@ -15,6 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Install build and check tools
         run: sudo apt-get update && sudo apt-get install -y build-essential curl patch python3 xz-utils bison flex autoconf automake libtool pkg-config zlib1g-dev libncurses-dev libssl-dev file binutils lua5.1 lua-cjson shellcheck
