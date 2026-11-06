@@ -85,7 +85,7 @@ uci commit flint2
 ```
 
 Header files must be regular files owned by the agent user with no group/other
-permissions. Curl reads them by filename so header values do not appear in process
+permissions; symlinks are rejected. Curl reads them by filename so header values do not appear in process
 arguments. Trust certificates contain no private key. Never set an endpoint URL
 containing a token or user credentials.
 

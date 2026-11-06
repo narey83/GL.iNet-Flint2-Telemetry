@@ -30,6 +30,7 @@ python3 "$root/scripts/prepare-openwrt-sdk.py" "$sdk"
 # all feeds (which can introduce their own mutually exclusive Kconfig options).
 ./scripts/feeds install libpcap lua lua-cjson luasocket luaposix libuci-lua ubus \
     curl ca-bundle jsonfilter coreutils-timeout firewall4 luci-base
+printf '\n# CONFIG_ALL is not set\n# CONFIG_ALL_KMODS is not set\n# CONFIG_ALL_NONSHARED is not set\n' >> .config
 for package in flint2-capture flint2-telemetry luci-app-flint2-telemetry; do
     [ ! -e "package/$package" ] || { echo "Package already exists: $package" >&2; exit 1; }
     cp -R "$root/openwrt/$package" "package/$package"
@@ -38,6 +39,9 @@ done
 make defconfig > "$work/defconfig.log" 2>&1
 cat "$work/defconfig.log"
 if grep -Eq 'error:|recursive dependency detected' "$work/defconfig.log"; then exit 1; fi
+for package in flint2-capture flint2-telemetry luci-app-flint2-telemetry; do
+    grep -q "^CONFIG_PACKAGE_$package=m$" .config || { echo "Package not selected: $package" >&2; exit 1; }
+done
 for package in flint2-capture flint2-telemetry luci-app-flint2-telemetry; do
     make "package/$package/compile" V=s -j "${FLINT2_BUILD_JOBS:-2}"
 done
