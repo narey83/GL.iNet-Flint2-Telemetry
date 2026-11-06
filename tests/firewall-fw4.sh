@@ -18,7 +18,41 @@ fw4 reload
 # this disposable fixture; the observer must retain its source-prefix match.
 nft add rule inet fw4 reject_from_wan ip saddr 198.51.100.0/24 iifname eth0 counter jump handle_reject
 nft -s list table inet fw4 > "$base/fw4-before"
-sh "$helper" start
+# Observe the real helper's snapshot redirection, then delegate to real nft.
+# A private parent prevents another local user from replacing a derived path
+# with a symlink between mktemp and the snapshot write.
+probe=$(mktemp -d "$base/nft-probe.XXXXXX")
+real_nft=$(command -v nft)
+cat > "$probe/nft" <<'NFT'
+#!/bin/sh
+set -eu
+if [ "$*" = '-j list table inet fw4' ]; then
+    destination=$(readlink "/proc/$$/fd/1")
+    FLINT2_NFT_PARENT="${destination%/*}" lua -e '
+    local stat=require("posix.sys.stat")
+    local info=assert(stat.lstat(os.getenv("FLINT2_NFT_PARENT")))
+    assert(stat.S_ISDIR(info.st_mode)~=0 and info.st_uid==0 and info.st_mode%512==448,
+        "Firewall snapshot parent must be root-owned and mode 0700")'
+    : > "$FLINT2_NFT_PROBED"
+    if [ -n "${FLINT2_NFT_GATE:-}" ]; then
+        "$FLINT2_REAL_NFT" "$@"
+        : > "$FLINT2_NFT_GATE/$$"
+        attempt=0
+        while [ "$attempt" -lt 100 ]; do
+            set -- "$FLINT2_NFT_GATE"/*
+            [ "$#" -lt 2 ] || exit 0
+            sleep 0.05
+            attempt=$((attempt+1))
+        done
+        echo 'Concurrent snapshot barrier timed out' >&2
+        exit 1
+    fi
+fi
+exec "$FLINT2_REAL_NFT" "$@"
+NFT
+chmod 755 "$probe/nft"
+PATH="$probe:$PATH" FLINT2_REAL_NFT="$real_nft" FLINT2_NFT_PROBED="$probe/probed" sh "$helper" start
+[ -f "$probe/probed" ]
 nft -s list table inet fw4 > "$base/fw4-first"
 sh "$helper" start
 nft -s list table inet fw4 > "$base/fw4-second"
@@ -43,6 +77,23 @@ nft -s list table inet fw4 > "$base/fw4-after"
 cmp "$base/fw4-before" "$base/fw4-after"
 sh "$helper" stop
 uci set flint2.main.wan_interface=eth0
+# Force two helpers to read the same empty ownership state. Exactly one create
+# transaction must win; the other must fail atomically instead of adding jumps.
+mkdir "$probe/gate"
+PATH="$probe:$PATH" FLINT2_REAL_NFT="$real_nft" FLINT2_NFT_PROBED="$probe/probed" \
+    FLINT2_NFT_GATE="$probe/gate" sh "$helper" start > "$probe/first.log" 2>&1 & first_pid=$!
+PATH="$probe:$PATH" FLINT2_REAL_NFT="$real_nft" FLINT2_NFT_PROBED="$probe/probed" \
+    FLINT2_NFT_GATE="$probe/gate" sh "$helper" start > "$probe/second.log" 2>&1 & second_pid=$!
+if wait "$first_pid"; then first=0; else first=$?; fi
+if wait "$second_pid"; then second=0; else second=$?; fi
+if ! { [ "$first" = 0 ] && [ "$second" != 0 ]; } &&
+    ! { [ "$second" = 0 ] && [ "$first" != 0 ]; }; then
+    cat "$probe/first.log" "$probe/second.log"; exit 1
+fi
+[ "$(nft list chain inet fw4 forward | grep -c 'comment "!flint2"')" = 1 ]
+sh "$helper" stop
+rm "$probe/nft" "$probe/probed" "$probe/first.log" "$probe/second.log" "$probe/gate/"*
+rmdir "$probe/gate" "$probe"
 uci set firewall.flint2_events=include
 uci set firewall.flint2_events.path="$helper"
 uci set firewall.flint2_events.type=script
@@ -61,4 +112,4 @@ if nft list chain inet fw4 flint2_evt_fwd >/dev/null 2>&1; then
 fi
 uci delete firewall.flint2_events
 uci commit firewall
-echo 'PASS: real fw4 rules, atomic failure, reload, idempotency and policy-preserving cleanup'
+echo 'PASS: real fw4 rules, private snapshots, concurrent start, atomic failure, reload and policy-preserving cleanup'

@@ -24,10 +24,11 @@ fi
 # single transaction: failures leave the old rules intact, and every rule is
 # LOG-only. Never insert a verdict or modify another package's rules.
 if command -v fw4 >/dev/null 2>&1; then
-	batch=$(mktemp)
-	trap 'rm -f "$batch"' EXIT HUP INT TERM
-	snapshot="$batch.rules"
-	trap 'rm -f "$batch" "$snapshot"' EXIT HUP INT TERM
+	temporary=$(mktemp -d)
+	batch="$temporary/batch"
+	snapshot="$temporary/rules"
+	trap 'rm -f "$batch" "$snapshot"; rmdir "$temporary"' EXIT
+	trap 'exit 1' HUP INT TERM
 	if ! nft -j list table inet fw4 > "$snapshot" 2>/dev/null; then
 		[ "$action" = stop ] || [ "$enabled" != 1 ] || [ "$logging" != 1 ]
 		exit "$?"

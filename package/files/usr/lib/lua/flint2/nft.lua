@@ -77,7 +77,7 @@ function M.build(snapshot, active, wan, vpn)
             comment="!flint2", expr={{jump={target=target}}}})
     end
     local function ct(key, value) return {match={op="in", left={ct={key=key}}, right=value}} end
-    command("add", "chain", object(owned.forward))
+    command("create", "chain", object(owned.forward))
     rule(owned.forward, {ipv4, interface_match(wan), ct("state", "new"), ct("status", "dnat"),
         {limit={rate=50, burst=250, per="second"}}, {log={prefix="FLINT2 FORWARD wan in: "}}})
     for _, device in ipairs(vpn) do
@@ -133,7 +133,7 @@ function M.build(snapshot, active, wan, vpn)
                     assert(rejected, "Non-rejecting fw4 handler rule")
                 end
             end
-            command("add", "chain", object(target))
+            command("create", "chain", object(target))
             for _, expressions in ipairs(observations) do rule(target, expressions) end
             connect(parent, target)
         end
