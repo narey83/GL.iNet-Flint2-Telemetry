@@ -13378,7 +13378,7 @@
                 "a29a023e-a256-51f9-91dd-e3519612eb9a": "Temperature average · 5 min (°C)",
                 "3d217998-bfd8-564f-b6af-5436750d164d": "Connections average · 5 min",
                 "db95d380-298f-553d-bfc9-7631d48446f1": "CPU & memory · 24 hours (%)",
-                "517bebe4-4e99-55fa-9a87-34bd317e61fa": "Monitored interface average traffic · 24 hours (bits/sec)",
+                "517bebe4-4e99-55fa-9a87-34bd317e61fa": "Monitored interface average traffic · 24 hours (Mbps)",
                 "eff7360a-a20f-5644-b81a-b3f99a42890a": "Temperature · 24 hours (°C)",
                 "69725d11-3652-5671-974b-b5180f2ffac0": "Connection table · 24 hours",
                 "d2195bde-b052-5d9b-808d-e81306cb7dae": "WAN availability · 24 hours (1 = up)",
@@ -13446,8 +13446,9 @@
                       "type": "time",
                       "config": {
                         "interval": {
-                          "type": "auto",
-                          "scaling": 1.0
+                          "type": "timeunit",
+                          "value": 5,
+                          "unit": "minutes"
                         }
                       }
                     }
@@ -13456,15 +13457,15 @@
                   "series": [
                     {
                       "config": {
-                        "name": "Download bits/sec"
+                        "name": "Download Mbps"
                       },
-                      "function": "avg(flint2_rx_bits_per_second)"
+                      "function": "avg(flint2_dashboard_rx_mbps)"
                     },
                     {
                       "config": {
-                        "name": "Upload bits/sec"
+                        "name": "Upload Mbps"
                       },
-                      "function": "avg(flint2_tx_bits_per_second)"
+                      "function": "avg(flint2_dashboard_tx_mbps)"
                     }
                   ],
                   "sort": [],
@@ -13774,15 +13775,15 @@
                   "series": [
                     {
                       "config": {
-                        "name": "RX bits/sec"
+                        "name": "RX Mbps"
                       },
-                      "function": "avg(flint2_rx_bits_per_second)"
+                      "function": "avg(flint2_dashboard_rx_mbps)"
                     },
                     {
                       "config": {
-                        "name": "TX bits/sec"
+                        "name": "TX Mbps"
                       },
-                      "function": "avg(flint2_tx_bits_per_second)"
+                      "function": "avg(flint2_dashboard_tx_mbps)"
                     },
                     {
                       "config": {
@@ -16235,13 +16236,13 @@
                   "series": [
                     {
                       "type": "avg",
-                      "id": "RX bits/sec",
-                      "field": "flint2_rx_bits_per_second"
+                      "id": "RX Mbps",
+                      "field": "flint2_dashboard_rx_mbps"
                     },
                     {
                       "type": "avg",
-                      "id": "TX bits/sec",
-                      "field": "flint2_tx_bits_per_second"
+                      "id": "TX Mbps",
+                      "field": "flint2_dashboard_tx_mbps"
                     },
                     {
                       "type": "max",
@@ -16284,13 +16285,13 @@
                   "series": [
                     {
                       "type": "avg",
-                      "id": "Download bits/sec",
-                      "field": "flint2_rx_bits_per_second"
+                      "id": "Download Mbps",
+                      "field": "flint2_dashboard_rx_mbps"
                     },
                     {
                       "type": "avg",
-                      "id": "Upload bits/sec",
-                      "field": "flint2_tx_bits_per_second"
+                      "id": "Upload Mbps",
+                      "field": "flint2_dashboard_tx_mbps"
                     }
                   ],
                   "sort": [],
@@ -16301,8 +16302,8 @@
                       "type": "time",
                       "field": "timestamp",
                       "interval": {
-                        "type": "auto",
-                        "scaling": 1.0
+                        "type": "timeunit",
+                        "timeunit": "5m"
                       }
                     }
                   ],
@@ -17969,7 +17970,7 @@
         },
         "source": {
           "@type": "string",
-          "@value": "pipeline \"Flint2 portable dashboard enrichment\"\nstage 0 match either\n    rule \"Flint2 portable megabytes\";\n    rule \"Flint2 portable peer inbound\";\n    rule \"Flint2 portable peer outbound\";\n    rule \"Flint2 portable peer internal\";\n    rule \"Flint2 portable high_byte_flow\";\n    rule \"Flint2 portable high_packet_flow\";\n    rule \"Flint2 portable TCP SYN\";\n    rule \"Flint2 portable TCP SYN-ACK\";\n    rule \"Flint2 portable TCP ACK\";\n    rule \"Flint2 portable TCP RST\";\n    rule \"Flint2 portable TCP FIN\";\n    rule \"Flint2 portable UDP volume\";\n    rule \"Flint2 portable service destination\";\n    rule \"Flint2 portable service source\";\n    rule \"Flint2 portable firewall service\";\n    rule \"Flint2 portable private destination\";\nend"
+          "@value": "pipeline \"Flint2 portable dashboard enrichment\"\nstage 0 match either\n    rule \"Flint2 portable megabytes\";\n    rule \"Flint2 portable interface Mbps\";\n    rule \"Flint2 portable peer inbound\";\n    rule \"Flint2 portable peer outbound\";\n    rule \"Flint2 portable peer internal\";\n    rule \"Flint2 portable high_byte_flow\";\n    rule \"Flint2 portable high_packet_flow\";\n    rule \"Flint2 portable TCP SYN\";\n    rule \"Flint2 portable TCP SYN-ACK\";\n    rule \"Flint2 portable TCP ACK\";\n    rule \"Flint2 portable TCP RST\";\n    rule \"Flint2 portable TCP FIN\";\n    rule \"Flint2 portable UDP volume\";\n    rule \"Flint2 portable service destination\";\n    rule \"Flint2 portable service source\";\n    rule \"Flint2 portable firewall service\";\n    rule \"Flint2 portable private destination\";\nend"
         },
         "connected_streams": [
           {
@@ -17977,6 +17978,34 @@
             "@value": "d80ac1c0-a065-5850-875b-86d702078510"
           }
         ]
+      },
+      "constraints": [
+        {
+          "type": "server-version",
+          "version": ">=4.3.0"
+        }
+      ]
+    },
+    {
+      "v": "1",
+      "type": {
+        "name": "pipeline_rule",
+        "version": "1"
+      },
+      "id": "10e56a96-f9e7-57a4-955f-7603122ff912",
+      "data": {
+        "title": {
+          "@type": "string",
+          "@value": "Flint2 portable interface Mbps"
+        },
+        "description": {
+          "@type": "string",
+          "@value": "Dashboard-only decimal Mbps from canonical bits per second."
+        },
+        "source": {
+          "@type": "string",
+          "@value": "rule \"Flint2 portable interface Mbps\"\nwhen\n    to_string($message.event_module) == \"flint2\" && has_field(\"flint2_rx_bits_per_second\") && has_field(\"flint2_tx_bits_per_second\")\nthen\n    set_field(\"flint2_dashboard_rx_mbps\", to_double($message.flint2_rx_bits_per_second) / 1000000.0);\n    set_field(\"flint2_dashboard_tx_mbps\", to_double($message.flint2_tx_bits_per_second) / 1000000.0);\nend"
+        }
       },
       "constraints": [
         {

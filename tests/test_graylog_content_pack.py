@@ -80,7 +80,7 @@ class ContentPackTests(unittest.TestCase):
 
     def test_enrichment_writes_only_backend_fields_and_guards_module(self):
         rules = [e['data']['source']['@value'] for e in self.entities if e['type']['name'] == 'pipeline_rule']
-        self.assertEqual(len(rules), 16)
+        self.assertEqual(len(rules), 17)
         for source in rules:
             self.assertIn('to_string($message.event_module) == "flint2"', source)
             destinations = re.findall(r'set_field\("([^"]+)"', source)
@@ -88,3 +88,7 @@ class ContentPackTests(unittest.TestCase):
             self.assertTrue(all(f.startswith('flint2_dashboard_') for f in destinations))
             self.assertNotIn('route_to_stream', source)
             self.assertNotIn('remove_field', source)
+        mbps = next(source for source in rules if 'rule "Flint2 portable interface Mbps"' in source)
+        self.assertIn('flint2_dashboard_rx_mbps', mbps)
+        self.assertIn('flint2_dashboard_tx_mbps', mbps)
+        self.assertEqual(mbps.count('/ 1000000.0'), 2)

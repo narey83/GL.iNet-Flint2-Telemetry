@@ -56,6 +56,7 @@ agent fields remain intact; the router does not depend on this pipeline.
 | Field | Meaning |
 | --- | --- |
 | `flint2_dashboard_megabytes` | Observed `source_bytes / 1000000`, decimal MB |
+| `flint2_dashboard_rx_mbps` / `_tx_mbps` | Interface receive/transmit bits per second divided by 1000000; decimal Mbps for rate widgets |
 | `flint2_dashboard_peer_ip` | Source for inbound flows; destination for outbound/internal flows |
 | `flint2_dashboard_wan_ip` | Opposite endpoint for direction-classified flows; interpret only with WAN scope |
 | `flint2_dashboard_service_port` / `flint2_dashboard_service` | Estimated port and its numeric string label |
@@ -70,6 +71,11 @@ Thresholds apply to individual unidirectional records. They are not validated
 attack detectors or packet-rate measurements. Capture/acceleration loss, flow
 expiry, queue loss and repeated observations affect counts. Use the original
 `event_start`, `event_end`, source counters and capture scope when interpreting them.
+
+The telemetry rate chart and interface table show Mbps. Flow dashboards still
+show transferred volume in MB per stated interval; a flow record's bytes are
+not a continuous link-speed measurement. On Graylog 4.3, newly imported Mbps
+widgets populate from records processed after the enrichment rule is installed.
 
 ## Optional enrichment fields
 

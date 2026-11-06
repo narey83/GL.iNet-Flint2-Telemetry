@@ -16,6 +16,12 @@ class FakeGraylog:
     def __init__(self):
         self.stream_body = None
         self.index_lookup = False
+        self.rule_body = None
+        self.pipeline_body = None
+        self.connection_body = None
+        self.view_body = None
+        self.existing_pipelines = []
+        self.existing_connections = []
 
     def request(self, method, path, body=None):
         if method == 'GET':
@@ -28,6 +34,12 @@ class FakeGraylog:
                 return {'index_sets': [{'id': 'default-index', 'default': True}]}
             if path == '/views':
                 return {'views': []}
+            if path == '/system/pipelines/pipeline':
+                return self.existing_pipelines
+            if path == '/system/pipelines/connections':
+                return self.existing_connections
+            if path == '/system/pipelines/rule':
+                return []
         if path == '/streams':
             self.stream_body = body
             return {'stream_id': 'stream'}
@@ -36,13 +48,33 @@ class FakeGraylog:
         if path == '/views/search':
             return {'id': 'search'}
         if path == '/views':
+            self.view_body = body
             return {'id': 'view'}
+        if path == '/system/pipelines/rule':
+            self.rule_body = body
+            return {'id': 'rule'}
+        if path == '/system/pipelines/pipeline':
+            self.pipeline_body = body
+            return {'id': 'pipeline'}
+        if path == '/system/pipelines/connections/to_stream':
+            self.connection_body = body
+            return {}
         if path in ['/streams/stream/rules', '/streams/stream/resume']:
             return {}
         raise AssertionError((method, path))
 
 
 class ProvisionTests(unittest.TestCase):
+    def test_existing_routing_pipeline_is_not_duplicated(self):
+        api = FakeGraylog()
+        api.existing_pipelines = [{'id': 'routing', 'title': 'Routing',
+                                   'source': 'rule "Flint2 interface Mbps display"'}]
+        api.existing_connections = [{'stream_id': 'stream', 'pipeline_ids': ['routing']}]
+        module.ensure_mbps_pipeline(api, 'stream')
+        self.assertIsNotNone(api.rule_body)
+        self.assertIsNone(api.pipeline_body)
+        self.assertIsNone(api.connection_body)
+
     def test_clean_install_uses_default_or_explicit_index_set(self):
         for configured in [None, 'chosen-index']:
             with self.subTest(configured=configured), tempfile.TemporaryDirectory() as directory:
@@ -53,3 +85,10 @@ class ProvisionTests(unittest.TestCase):
                 self.assertEqual(api.stream_body['index_set_id'], configured or 'default-index')
                 self.assertEqual(api.index_lookup, configured is None)
                 self.assertTrue((Path(directory) / 'dist/graylog-resources.json').is_file())
+                self.assertIn('/ 1000000.0', api.rule_body['source'])
+                self.assertEqual(api.connection_body, {'stream_id': 'stream', 'pipeline_ids': ['pipeline']})
+                state = next(iter(api.view_body['state'].values()))
+                rate_widgets = [w for w in state['widgets'] if any('mbps' in s['function']
+                                for s in w.get('config', {}).get('series', []))]
+                self.assertEqual(len(rate_widgets), 2)
+                self.assertIn('WAN traffic · 24 hours (Mbps)', state['titles']['widget'].values())
