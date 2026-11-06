@@ -1,6 +1,7 @@
 # Official OpenWrt repository preparation
 
-Status: **preparation only; not ready for upstream submission**. The community
+Status: **technical candidate qualified for maintainer review**. Human review and
+genuine DCO sign-offs remain required before upstream submission. The community
 feed remains the install/update route for the qualified GL-MT6000 vendor 21.02
 firmware. No upstream pull request has been submitted and the project is not in
 the default OpenWrt repositories.
@@ -48,10 +49,10 @@ precise scope. The public vendor feed remains on its qualified release.
 | Area | Candidate implementation | Qualification |
 | --- | --- | --- |
 | Backend dependencies | `openwrt/flint2-telemetry/Makefile` uses core/packages dependencies, LuaPOSIX and a separate capture package | Platform checks and transport fixtures run on current OpenWrt without nixio; vendor nixio fallback tested separately |
-| Source builds | Capture builds with the selected SDK toolchain and OpenWrt libpcap; backend uses a full-commit/SHA-256 source pin | Local current x86-64 capture build passed; complete x86-64/Filogic matrix results recorded in `VALIDATION.md` |
+| Source builds | Capture builds with the selected SDK toolchain and OpenWrt libpcap; backend uses a full-commit/SHA-256 source pin | Complete x86-64 and MediaTek/Filogic builds passed, including the final standalone LuCI package |
 | Firewall | fw4 JSON transactions preserve the deny rules' matches; fw3 path retained for vendor builds | Real fw4 reload, cleanup, idempotency, constrained deny rules and failure cases passed in an isolated OpenWrt system |
 | Architecture | Native package restricted to 64-bit; service queries the compiled record layout | x86-64 query and live loopback flags/timestamps tested; Filogic hardware/offload behavior is not certified by a cross-build |
-| Package ownership | Backend, native capture and LuCI own separate paths | Installation/removal and ownership results recorded in `VALIDATION.md`; legacy combined-to-split migration is not supported across firmware ABIs |
+| Package ownership | Backend, native capture and LuCI own separate paths | Signed install, disabled defaults, headless backend, upgrade/config retention, container restart, license notices and removal passed; cross-ABI migration is not supported |
 | CLI | Agent `--help`/`--version` run before modules/config; unknown options exit 2 | CI probes and explicit package version test avoid invoking firewall helpers |
 | Native patches | Refreshed through OpenWrt quilt targets; provenance headers and upstream status included | Human review and genuine DCO sign-offs still required; no sign-off has been created on your behalf |
 | Licenses | MIT backend/UI; capture retains pmacct and bundled libcdada notices, with system libpcap | Maintainer must review final source/license obligations before signing |
@@ -63,6 +64,12 @@ host tooling, not patches to an installed router or requirements imposed by the
 package recipes.
 
 ## Source baseline
+
+The current backend recipe pins commit
+`853002997d73ca820703b09c8a590a285651e59f`, archive SHA-256
+`6b026094d455f5fb72be81ca479e52fb0f07be62d775a3debcc5f973a70c9206`.
+Its runtime is checked against the tested tree. Native capture uses its own
+upstream source pin and refreshed patches in `openwrt/flint2-capture/`.
 
 The last qualified release is `v0.3.1-6`, from source commit
 `b5d202b86cfb896b9433ba2c3d27898adcf28e12`. Its matching

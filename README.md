@@ -2,7 +2,9 @@
 
 An OpenWrt telemetry agent for GL.iNet Flint 2 (GL-MT6000). Collects router health,
 interface counters, WAN changes, device inventory, router logs and IPv4 flow
-observations. Installs as one UCI-configured, procd-supervised `.ipk`.
+observations. The released vendor-firmware package is one UCI-configured,
+procd-supervised `.ipk`. Current OpenWrt development builds use separate `.apk`
+packages for the backend, capture component and optional LuCI app.
 
 The public package starts **disabled**, with placeholder endpoints and system CA
 trust. No site addresses, credentials or private trust certificates are bundled.

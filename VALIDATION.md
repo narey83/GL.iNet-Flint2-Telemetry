@@ -383,7 +383,7 @@ and rejects configuration errors before compilation.
 - Native patches were refreshed using OpenWrt's `prepare QUILT=1` and `refresh`
   targets. Provenance headers and upstream status are included; human DCO
   sign-offs remain intentionally absent pending maintainer review.
-- Thirty-five Python tests, Node LuCI checks, Python compilation, ShellCheck and
+- Thirty-six Python tests, Node LuCI checks, Python compilation, ShellCheck and
   `git diff --check` passed. The two Lua CLI tests are unavailable on the Mac's
   local Python run, but run with Lua installed in the successful source CI.
 
@@ -391,8 +391,45 @@ The complete SDK builds initially compiled the backend and capture on both
 targets, then failed because the LuCI application lacked the buildroot discovery
 signature. The corrected recipe was verified through an SDK metadata dump,
 including version, dependencies and maintainer; the builder now checks selection
-of all three packages before compiling. Full matrix and generated-package
-lifecycle results are recorded separately when completed.
+of all three packages before compiling.
+
+### Final generated-package qualification
+
+[Final matrix run 42138553040](https://github.com/narey83/GL.iNet-Flint2-Telemetry/actions/runs/42138553040)
+passed both x86-64 and MediaTek/Filogic builds, producing the three signed APKs,
+public keys/checksums, source recipes and a packaging-only backend revision 2
+for upgrade testing. The final source checks also passed all 36 Python tests
+with Lua available, Lua contracts, Node checks, compilation and ShellCheck.
+
+The final x86-64 APKs passed `tests/package-lifecycle.sh` in the isolated Docker
+fixture. Signature verification remained enabled. Clean installation retained
+disabled defaults; the backend ran without nixio or LuCI. Enabling it created
+one agent and one selected capture instance, with the binary's queried buffer
+size. Service reload and firewall reload retained a single owned forward jump.
+Upgrading the real backend APK from revision 1 to the qualification-only revision
+2 changed the agent PID, preserved the exact UCI configuration and retained
+startup enablement. Adding the standalone UI installed its view under the UI
+package's ownership and included the exact MIT notice.
+
+Installed backend programs were byte-compared with the pinned/tested source.
+The installed final capture binary passed the loopback TCP/SYN/timestamp test;
+its embedded build-directory strings were absent. The packaged LuCI JavaScript
+parsed successfully. Signed capture APKs from the protected-runtime build were
+also verified/extracted for both architectures: ELF64 x86-64 and AArch64 headers
+matched their target labels. A modified APK was rejected with a file-integrity
+error. This does not constitute an ARM runtime test.
+
+The initial complete package set passed a container restart and removal, with
+the modified UCI configuration retained across restart and the original stateless
+fw4 ruleset restored exactly after uninstall. The final package set repeated
+installation, upgrade, restart and removal checks. The immediate removal probe
+briefly observed procd's asynchronous stopping state; a subsequent probe confirmed
+no service or processes remained. The harness now waits through the configured
+stop/reaping window before declaring an orphan. Exact firewall restoration and
+file/hook removal passed. Docker
+restart tests cover OpenWrt userland startup, not a kernel or physical-router
+reboot. Stock dnsmasq/ntpd jail/cgroup warnings in the capability-limited container
+are outside these application checks.
 
 Published security advisory pages for
 [LuaPOSIX](https://github.com/luaposix/luaposix/security/advisories) and

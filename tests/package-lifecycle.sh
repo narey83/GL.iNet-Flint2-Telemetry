@@ -84,10 +84,16 @@ remove)
     if uci -q get firewall.flint2_events; then echo 'Orphan firewall include' >&2; exit 1; fi
     nft -s list table inet fw4 > "$state/firewall-after"
     cmp "$state/firewall-before" "$state/firewall-after"
-    ubus call service list '{"name":"flint2"}' | lua -e '
+    # procd acknowledges stop before its SIGTERM/reaping window completes.
+    attempt=0
+    until ubus call service list '{"name":"flint2"}' | lua -e '
     local value=require("cjson").decode(io.read("*a")); for _,s in pairs(value) do
-        for _,i in pairs(s.instances or {}) do assert(not i.running,"Orphan service") end
-    end'
+        for _,i in pairs(s.instances or {}) do if i.running then os.exit(1) end end
+    end'; do
+        [ "$attempt" -lt 7 ] || { echo 'Service survived its stop timeout' >&2; exit 1; }
+        sleep 1
+        attempt=$((attempt+1))
+    done
     rm -f /etc/apk/keys/flint2-current-test.pem
     echo 'PASS: reboot persistence, package removal and exact firewall policy restoration'
     ;;
